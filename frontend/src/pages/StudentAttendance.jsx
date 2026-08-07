@@ -3,6 +3,24 @@ import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
 export default function StudentAttendance() {
+
+  useEffect(() => {
+    // ONE-TIME FORCED RESET FLAG
+    const HAS_RESET = localStorage.getItem("reset_wrong_rollno_v1");
+
+    if (!HAS_RESET) {
+      // Clear incorrectly typed roll numbers and local data
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Set flag so this clear only happens ONCE, not on every scan
+      localStorage.setItem("reset_wrong_rollno_v1", "true");
+    }
+  }, []);
+
+  
+
+
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('sessionId');
 
