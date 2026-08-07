@@ -34,6 +34,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
+  // 1. Initial Full Data Fetch
   useEffect(() => {
     if (!activeTeacher.teacher_id) {
       navigate('/');
@@ -42,14 +43,23 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     fetchStudentsAndAttendance();
   }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
 
+  // 2. REAL-TIME AUTOMATIC POLLING (Updates present status every 3 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchLiveAttendanceOnly();
+    }, 3000); // Polls every 3 seconds
+
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+  }, [filters.dept, filters.hour, filters.date]);
+
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Students
+      // Fetch Students
       const resStudents = await axios.get(`/api/students?dept=${filters.dept}&year=${filters.year}&section=${filters.sec}`);
       const studentData = resStudents.data || [];
 
-      // 2. Fetch Saved Attendance Records
+      // Fetch Saved Attendance Records
       const resSaved = await axios.get(`/api/attendance/records?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`);
       const savedRecords = resSaved.data || [];
 
@@ -60,7 +70,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
       setStudents(studentData);
 
-      // 3. Map Attendance State (Locks Present students)
       const nextAttendance = {};
       studentData.forEach(s => {
         if (savedMap[s.roll_no]) {
@@ -83,46 +92,77 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  // Generate QR Code Handler
- const handleGenerateQr = () => {
-  if (!navigator.geolocation) {
-    alert("Geolocation is not supported by your browser.");
-    return;
-  }
+  // LIGHTWEIGHT LIVE FETCH FOR REAL-TIME TOGGLE UPDATES
+  const fetchLiveAttendanceOnly = async () => {
+    try {
+      const resLive = await axios.get(
+        `/api/attendance/live?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`
+      );
+      const liveRecords = resLive.data || [];
+      const livePresentSet = new Set(liveRecords.map(r => r.roll_no));
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const res = await axios.post('/api/qr/generate-location', {
-          dept: filters.dept,
-          year: filters.year,
-          section: filters.sec,
-          hour: filters.hour,
-          date: filters.date,
-          teacherLat: position.coords.latitude,
-          teacherLng: position.coords.longitude,
-          teacherId: activeTeacher.teacher_id || 'FAC101'
+      setAttendance(prev => {
+        let updated = false;
+        const nextState = { ...prev };
+
+        liveRecords.forEach(r => {
+          const roll = r.roll_no;
+          if (!nextState[roll] || !nextState[roll].checked) {
+            nextState[roll] = {
+              checked: true,
+              smsStatus: nextState[roll]?.smsStatus || "Not Sent",
+              locked: true // Lock automatically when student marks via QR
+            };
+            updated = true;
+          }
         });
 
-        if (res.data.success) {
-          // 1. Detect deployed Render domain or current window origin
-          const baseUrl = window.location.origin.includes('localhost') 
-            ? 'http://192.168.0.100:5173'  // Fallback for local testing
-            : window.location.origin;       // Production Render URL (e.g. https://smart-attendance-system-ncjm.onrender.com)
+        return updated ? nextState : prev;
+      });
+    } catch (err) {
+      // Silent error catching to prevent alert popups during live polling
+    }
+  };
 
-          const studentAccessUrl = `${baseUrl}/student?sessionId=${res.data.sessionId}`;
+  // Generate QR Code Handler
+  const handleGenerateQr = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
 
-          setQrData(studentAccessUrl);
-          setIsQrOpen(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const res = await axios.post('/api/qr/generate-location', {
+            dept: filters.dept,
+            year: filters.year,
+            section: filters.sec,
+            hour: filters.hour,
+            date: filters.date,
+            teacherLat: position.coords.latitude,
+            teacherLng: position.coords.longitude,
+            teacherId: activeTeacher.teacher_id || 'FAC101'
+          });
+
+          if (res.data.success) {
+            const baseUrl = window.location.origin.includes('localhost')
+              ? 'http://192.168.0.100:5173'
+              : window.location.origin;
+
+            const studentAccessUrl = `${baseUrl}/student?sessionId=${res.data.sessionId}`;
+
+            setQrData(studentAccessUrl);
+            setIsQrOpen(true);
+          }
+        } catch (err) {
+          alert("Failed to generate classroom QR code.");
         }
-      } catch (err) {
-        alert("Failed to generate classroom QR code.");
-      }
-    },
-    () => alert("Please allow GPS location permission to generate classroom QR code."),
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-};
+      },
+      () => alert("Please allow GPS location permission to generate classroom QR code."),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Add Student Handler
   const handleAddStudent = async (e) => {
@@ -148,7 +188,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  // Toggle Checkbox (Prevents undoing Present status)
+  // Toggle Checkbox
   const handleToggleAttendance = (rollNo) => {
     setAttendance(prev => {
       const current = prev[rollNo] || { checked: false, smsStatus: "Not Sent", locked: false };
@@ -446,7 +486,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 5. SUMMARY ANALYTICS SECTION (STATS CARDS + PRESENT/ABSENT LISTS) */}
+      {/* 5. SUMMARY ANALYTICS SECTION */}
       <div className="card" style={{ padding: '24px' }}>
         
         {/* STATS COUNT CARDS */}
@@ -469,8 +509,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
         {/* SIDE-BY-SIDE PRESENT & ABSENT LISTS */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-          
-          {/* PRESENT LIST */}
           <div>
             <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '12px', color: '#10b981' }}>Present List ({presentStudents.length})</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -486,7 +524,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             </div>
           </div>
 
-          {/* ABSENT LIST */}
           <div>
             <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '12px', color: '#ef4444' }}>Absent List ({absentStudents.length})</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -501,12 +538,11 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               )}
             </div>
           </div>
-
         </div>
 
       </div>
 
-      {/* ADD STUDENT MODAL */}
+      {/* MODALS */}
       {isAddStudentOpen && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -562,7 +598,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* GENERATE QR CODE MODAL */}
       {isQrOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center' }}>
@@ -592,7 +627,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* CHANGE PASSWORD MODAL */}
       {isPasswordModalOpen && (
         <div className="modal-overlay">
           <div className="modal-card">
