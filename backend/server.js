@@ -193,7 +193,7 @@ app.post('/api/attendance/submit', async (req, res) => {
           teacher_id: teacherId,
           updated_at: new Date()
         },
-        { upsert: true, new: true }
+        { returnDocument: 'after', upsert: true }
       );
     }
     res.json({ success: true, message: "Attendance saved permanently!" });
