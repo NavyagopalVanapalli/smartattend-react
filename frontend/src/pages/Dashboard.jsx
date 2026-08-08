@@ -35,14 +35,19 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [qrData, setQrData] = useState('');
 
   // 1. Initial Full Data Fetch
-  useEffect(() => {
-    if (!activeTeacher.teacher_id) {
-      navigate('/');
-      return;
-    }
-    fetchStudentsAndAttendance();
-  }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
+// Reset attendance state when date, hour, or department changes
+useEffect(() => {
+  if (!activeTeacher.teacher_id) {
+    navigate('/');
+    return;
+  }
+  
+  // 1. Wipe previous date's attendance state from memory
+  setAttendance({});
 
+  // 2. Fetch records for the newly selected date
+  fetchStudentsAndAttendance();
+}, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
   // 2. REAL-TIME AUTOMATIC POLLING (Updates present status every 3 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -52,77 +57,80 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     return () => clearInterval(interval); // Cleanup interval on component unmount
   }, [filters.dept, filters.hour, filters.date]);
 
-  const fetchStudentsAndAttendance = async () => {
-    setLoading(true);
-    try {
-      // Fetch Students
-      const resStudents = await axios.get(`/api/students?dept=${filters.dept}&year=${filters.year}&section=${filters.sec}`);
-      const studentData = resStudents.data || [];
+ const fetchStudentsAndAttendance = async () => {
+  setLoading(true);
+  try {
+    const resStudents = await axios.get(`/api/students?dept=${filters.dept}&year=${filters.year}&section=${filters.sec}`);
+    const studentData = resStudents.data || [];
 
-      // Fetch Saved Attendance Records
-      const resSaved = await axios.get(`/api/attendance/records?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`);
-      const savedRecords = resSaved.data || [];
+    const resSaved = await axios.get(`/api/attendance/records?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`);
+    const savedRecords = resSaved.data || [];
 
-      const savedMap = {};
-      savedRecords.forEach(rec => {
-        savedMap[rec.roll_no] = rec;
-      });
+    const savedMap = {};
+    savedRecords.forEach(rec => {
+      savedMap[rec.roll_no] = rec;
+    });
 
-      setStudents(studentData);
+    setStudents(studentData);
 
-      const nextAttendance = {};
-      studentData.forEach(s => {
-        if (savedMap[s.roll_no]) {
-          const isPresent = savedMap[s.roll_no].status === "Present";
-          nextAttendance[s.roll_no] = {
-            checked: isPresent,
-            smsStatus: savedMap[s.roll_no].sms_status || "Not Sent",
-            locked: isPresent
-          };
-        } else {
-          nextAttendance[s.roll_no] = { checked: false, smsStatus: "Not Sent", locked: false };
-        }
-      });
+    // Build fresh state specific to THIS selected date
+    const freshAttendance = {};
+    studentData.forEach(s => {
+      if (savedMap[s.roll_no]) {
+        const isPresent = savedMap[s.roll_no].status === "Present";
+        freshAttendance[s.roll_no] = {
+          checked: isPresent,
+          smsStatus: savedMap[s.roll_no].sms_status || "Not Sent",
+          locked: isPresent
+        };
+      } else {
+        // Default to UNCHECKED for a new date
+        freshAttendance[s.roll_no] = { checked: false, smsStatus: "Not Sent", locked: false };
+      }
+    });
 
-      setAttendance(nextAttendance);
-    } catch (err) {
-      console.error("Error loading dashboard data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setAttendance(freshAttendance);
+  } catch (err) {
+    console.error("Error loading dashboard data:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // LIGHTWEIGHT LIVE FETCH FOR REAL-TIME TOGGLE UPDATES
   const fetchLiveAttendanceOnly = async () => {
-    try {
-      const resLive = await axios.get(
-        `/api/attendance/live?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`
-      );
-      const liveRecords = resLive.data || [];
-      const livePresentSet = new Set(liveRecords.map(r => r.roll_no));
+  try {
+    const resLive = await axios.get(
+      `/api/attendance/live?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`
+    );
+    const liveRecords = resLive.data || [];
+    const livePresentSet = new Set(liveRecords.map(r => r.roll_no));
 
-      setAttendance(prev => {
-        let updated = false;
-        const nextState = { ...prev };
+    setAttendance(prev => {
+      const nextState = { ...prev };
+      let hasChanges = false;
 
-        liveRecords.forEach(r => {
-          const roll = r.roll_no;
-          if (!nextState[roll] || !nextState[roll].checked) {
-            nextState[roll] = {
-              checked: true,
-              smsStatus: nextState[roll]?.smsStatus || "Not Sent",
-              locked: true // Lock automatically when student marks via QR
-            };
-            updated = true;
-          }
-        });
+      // Update statuses based on live query for current date
+      students.forEach(s => {
+        const roll = s.roll_no;
+        const isLivePresent = livePresentSet.has(roll);
 
-        return updated ? nextState : prev;
+        if (isLivePresent && (!nextState[roll] || !nextState[roll].checked)) {
+          nextState[roll] = {
+            checked: true,
+            smsStatus: nextState[roll]?.smsStatus || "Not Sent",
+            locked: true
+          };
+          hasChanges = true;
+        }
       });
-    } catch (err) {
-      // Silent error catching to prevent alert popups during live polling
-    }
-  };
+
+      return hasChanges ? nextState : prev;
+    });
+  } catch (err) {
+    // Silent handling for polling
+  }
+};
 
   // Generate QR Code Handler
   const handleGenerateQr = () => {
