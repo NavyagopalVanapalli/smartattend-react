@@ -1,134 +1,158 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
-export default function StudentAttendance() {
+export default function Student() {
+  const [studentInfo, setStudentInfo] = useState(null);
+  const [rollNoInput, setRollNoInput] = useState('');
+  const [attendanceStats, setAttendanceStats] = useState(null);
 
   useEffect(() => {
-    // ONE-TIME FORCED RESET FLAG
+    // 1. ONE-TIME WIPE FOR INCORRECT ROLL NUMBERS
     const HAS_RESET = localStorage.getItem("reset_wrong_rollno_v1");
-
     if (!HAS_RESET) {
-      // Clear incorrectly typed roll numbers and local data
       localStorage.clear();
       sessionStorage.clear();
-      
-      // Set flag so this clear only happens ONCE, not on every scan
       localStorage.setItem("reset_wrong_rollno_v1", "true");
     }
-  }, []);
 
-  
-
-
-  const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('sessionId');
-
-  const [rollNo, setRollNo] = useState('');
-  const [isLocked, setIsLocked] = useState(false);
-  const [statusMsg, setStatusMsg] = useState({ text: '', isSuccess: false });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const savedRoll = localStorage.getItem('assigned_roll_no');
-    if (savedRoll) {
-      setRollNo(savedRoll);
-      setIsLocked(true);
+    // 2. Load saved student if exists
+    const savedStudent = localStorage.getItem("student_profile");
+    if (savedStudent) {
+      const parsed = JSON.parse(savedStudent);
+      setStudentInfo(parsed);
+      fetchStudentStats(parsed.roll_no);
     }
   }, []);
 
-const submitAttendance = () => {
-  if (!rollNo.trim()) {
-    setStatusMsg({ text: "Please enter your Roll Number.", isSuccess: false });
-    return;
-  }
-
-  if (!sessionId) {
-    setStatusMsg({ text: "Invalid QR link. Session ID missing.", isSuccess: false });
-    return;
-  }
-
-  setLoading(true);
-
-  const sendRequest = async (lat, lng) => {
+  // Fetch Weekly & Monthly Attendance Stats
+  const fetchStudentStats = async (rollNo) => {
     try {
-      const res = await axios.post('/api/qr/verify-student', {
-        rollNo: rollNo.toUpperCase(),
-        studentLat: lat,
-        studentLng: lng,
-        sessionId
-      });
-
-      if (res.data.success) {
-        localStorage.setItem('assigned_roll_no', rollNo.toUpperCase());
-        setIsLocked(true);
-        setStatusMsg({ text: res.data.message, isSuccess: true });
-      }
+      const res = await axios.get(`/api/student/stats?roll_no=${rollNo}`);
+      setAttendanceStats(res.data);
     } catch (err) {
-      setStatusMsg({ 
-        text: err.response?.data?.message || "Failed to verify location.", 
-        isSuccess: false 
-      });
-    } finally {
-      setLoading(false);
+      console.error("Error fetching student stats:", err);
     }
   };
 
-  if (!navigator.geolocation) {
-    // Fallback if browser blocks GPS completely
-    sendRequest(16.5449, 81.5212); // Default fallback coords
-    return;
-  }
+  // Save new roll number registration
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!rollNoInput.trim()) return;
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      sendRequest(position.coords.latitude, position.coords.longitude);
-    },
-    (error) => {
-      // If user/browser denies GPS, inform user or execute controlled fallback
-      setStatusMsg({ 
-        text: "GPS blocked by browser over HTTP. Please enable Chrome flags or allow Location in Site Settings.", 
-        isSuccess: false 
-      });
-      setLoading(false);
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-};
+    try {
+      const res = await axios.get(`/api/student/verify?roll_no=${rollNoInput.trim()}`);
+      if (res.data.success) {
+        const studentData = res.data.student;
+        localStorage.setItem("student_profile", JSON.stringify(studentData));
+        setStudentInfo(studentData);
+        fetchStudentStats(studentData.roll_no);
+      } else {
+        alert("Roll Number not found in system. Please contact faculty.");
+      }
+    } catch (err) {
+      alert("Error verifying Roll Number.");
+    }
+  };
+
+  // Reset local registration manually
+  const handleClearProfile = () => {
+    localStorage.removeItem("student_profile");
+    setStudentInfo(null);
+    setAttendanceStats(null);
+  };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#0f172a' }}>
-      <div className="card" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', padding: '30px' }}>
-        <h2>📍 Class Attendance</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>Enter your Roll Number to verify classroom location and submit attendance.</p>
+    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px' }}>
+      
+      {/* STEP A: IF NO SAVED STUDENT -> SHOW REGISTRATION FORM */}
+      {!studentInfo ? (
+        <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
+          <h2>🎓 Student Registration</h2>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>
+            Enter your Roll Number once to connect your device.
+          </p>
 
-        <div className="input-group">
-          <label>Roll Number</label>
-          <input 
-            type="text" 
-            value={rollNo} 
-            onChange={(e) => setRollNo(e.target.value)} 
-            readOnly={isLocked}
-            placeholder="e.g. 2585351101" 
-          />
+          <form onSubmit={handleRegister}>
+            <input
+              type="text"
+              placeholder="Enter Roll Number (e.g. 21CS01)"
+              value={rollNoInput}
+              onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                marginBottom: '15px',
+                textAlign: 'center',
+                fontWeight: '700'
+              }}
+              required
+            />
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
+              Save & Continue
+            </button>
+          </form>
         </div>
+      ) : (
 
-        <button onClick={submitAttendance} disabled={loading} className="btn btn-primary" style={{ width: '100%' }}>
-          {loading ? "Verifying GPS..." : "Submit Attendance"}
-        </button>
-
-        {statusMsg.text && (
-          <div className={`status-msg ${statusMsg.isSuccess ? 'success' : 'error'}`} style={{ marginTop: '15px' }}>
-            {statusMsg.text}
+        /* STEP B: STUDENT DASHBOARD + ATTENDANCE PERCENTAGE */
+        <div>
+          {/* Header Card */}
+          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{studentInfo.full_name}</h3>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                  Roll: <strong>{studentInfo.roll_no}</strong> | Dept: {studentInfo.dept_code}
+                </span>
+              </div>
+              <button 
+                onClick={handleClearProfile} 
+                style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}
+              >
+                Change Roll No
+              </button>
+            </div>
           </div>
-        )}
 
-        {isLocked && (
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '15px' }}>
-            🔒 Device locked to Roll No: {rollNo}
+          {/* ATTENDANCE PERCENTAGE CARDS */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+            
+            {/* WEEKLY PERCENTAGE */}
+            <div className="card" style={{ padding: '16px', textAlign: 'center', borderLeft: '4px solid #4f46e5' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>WEEKLY ATTENDANCE</span>
+              <h2 style={{ fontSize: '1.8rem', color: '#4f46e5', margin: '8px 0 0 0' }}>
+                {attendanceStats ? `${attendanceStats.weeklyPercentage}%` : '...'}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                {attendanceStats ? `${attendanceStats.weeklyPresent}/${attendanceStats.weeklyTotal} Hours` : ''}
+              </span>
+            </div>
+
+            {/* MONTHLY PERCENTAGE */}
+            <div className="card" style={{ padding: '16px', textAlign: 'center', borderLeft: '4px solid #10b981' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>MONTHLY ATTENDANCE</span>
+              <h2 style={{ fontSize: '1.8rem', color: '#10b981', margin: '8px 0 0 0' }}>
+                {attendanceStats ? `${attendanceStats.monthlyPercentage}%` : '...'}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                {attendanceStats ? `${attendanceStats.monthlyPresent}/${attendanceStats.monthlyTotal} Hours` : ''}
+              </span>
+            </div>
+
           </div>
-        )}
-      </div>
+
+          {/* QR SCAN BUTTON AREA */}
+          <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
+            <h4>Mark Attendance</h4>
+            <p style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              Make sure location (GPS) is enabled on your device when submitting.
+            </p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
