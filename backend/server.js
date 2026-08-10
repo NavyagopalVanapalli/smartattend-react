@@ -237,18 +237,31 @@ app.get('/api/attendance/records', async (req, res) => {
   }
 });
 
-// GET REAL-TIME ATTENDANCE STATUS
+// GET REAL-TIME ATTENDANCE STATUS (FIXED MATCHING)
 app.get('/api/attendance/live', async (req, res) => {
   const { dept, hour, date, teacherId } = req.query;
 
   try {
+    if (!dept || !date) {
+      return res.json([]);
+    }
+
+    // Clean hour string to handle both "Hour 1" and "Hour 1 (09:00 AM)"
+    const hourPrefix = hour ? hour.split(' ')[0] + ' ' + (hour.split(' ')[1] || '') : '';
+
     const query = {
-      dept_code: dept,
-      hour: hour,
-      date: date,
+      dept_code: new RegExp(`^${dept.trim()}$`, 'i'),
+      date: date.trim(),
       status: 'Present'
     };
-    if (teacherId) query.teacher_id = teacherId;
+
+    if (hourPrefix.trim()) {
+      query.hour = { $regex: new RegExp(hourPrefix.trim(), 'i') };
+    }
+
+    if (teacherId) {
+      query.teacher_id = teacherId;
+    }
 
     const results = await Attendance.find(query, 'roll_no status');
     res.json(results);

@@ -98,37 +98,35 @@ useEffect(() => {
 };
 
   // LIGHTWEIGHT LIVE FETCH FOR REAL-TIME TOGGLE UPDATES
-  const fetchLiveAttendanceOnly = async () => {
+const fetchLiveAttendanceOnly = async () => {
   try {
     const resLive = await axios.get(
-      `/api/attendance/live?dept=${filters.dept}&hour=${filters.hour}&date=${filters.date}`
+      `/api/attendance/live?dept=${filters.dept}&hour=${encodeURIComponent(filters.hour)}&date=${filters.date}`
     );
     const liveRecords = resLive.data || [];
-    const livePresentSet = new Set(liveRecords.map(r => r.roll_no));
 
-    setAttendance(prev => {
-      const nextState = { ...prev };
-      let hasChanges = false;
+    if (liveRecords.length > 0) {
+      setAttendance(prev => {
+        let hasChanges = false;
+        const nextState = { ...prev };
 
-      // Update statuses based on live query for current date
-      students.forEach(s => {
-        const roll = s.roll_no;
-        const isLivePresent = livePresentSet.has(roll);
+        liveRecords.forEach(r => {
+          const roll = r.roll_no;
+          if (!nextState[roll] || !nextState[roll].checked) {
+            nextState[roll] = {
+              checked: true,
+              smsStatus: nextState[roll]?.smsStatus || "Not Sent",
+              locked: true // Automatically lock switch to Present
+            };
+            hasChanges = true;
+          }
+        });
 
-        if (isLivePresent && (!nextState[roll] || !nextState[roll].checked)) {
-          nextState[roll] = {
-            checked: true,
-            smsStatus: nextState[roll]?.smsStatus || "Not Sent",
-            locked: true
-          };
-          hasChanges = true;
-        }
+        return hasChanges ? nextState : prev;
       });
-
-      return hasChanges ? nextState : prev;
-    });
+    }
   } catch (err) {
-    // Silent handling for polling
+    // Silent catch during background polling
   }
 };
 
