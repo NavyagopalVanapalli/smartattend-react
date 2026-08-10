@@ -161,31 +161,39 @@ app.get('/api/student/verify', async (req, res) => {
 });
 
 // 2. CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
+// CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
 app.get('/api/student/stats', async (req, res) => {
   try {
     const { roll_no } = req.query;
     
     const now = new Date();
     
+    // Start of Week (7 days ago)
     const weekAgo = new Date();
     weekAgo.setDate(now.getDate() - 7);
     const weekAgoStr = weekAgo.toISOString().split('T')[0];
 
+    // Start of Month (30 days ago)
     const monthAgo = new Date();
     monthAgo.setDate(now.getDate() - 30);
     const monthAgoStr = monthAgo.toISOString().split('T')[0];
 
+    // Fetch Attendance Records
     const allRecords = await Attendance.find({ roll_no });
 
+    // Weekly Stats Calculation
     const weeklyRecords = allRecords.filter(r => r.date >= weekAgoStr);
     const weeklyTotal = weeklyRecords.length;
     const weeklyPresent = weeklyRecords.filter(r => r.status === 'Present').length;
-    const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 100;
+    // Fix: If total is 0, percentage is 0%
+    const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 0;
 
+    // Monthly Stats Calculation
     const monthlyRecords = allRecords.filter(r => r.date >= monthAgoStr);
     const monthlyTotal = monthlyRecords.length;
     const monthlyPresent = monthlyRecords.filter(r => r.status === 'Present').length;
-    const monthlyPercentage = monthlyTotal > 0 ? Math.round((monthlyPresent / monthlyTotal) * 100) : 100;
+    // Fix: If total is 0, percentage is 0%
+    const monthlyPercentage = monthlyTotal > 0 ? Math.round((monthlyPresent / monthlyTotal) * 100) : 0;
 
     res.json({
       weeklyTotal,

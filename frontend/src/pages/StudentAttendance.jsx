@@ -5,9 +5,11 @@ export default function Student() {
   const [studentInfo, setStudentInfo] = useState(null);
   const [rollNoInput, setRollNoInput] = useState('');
   const [attendanceStats, setAttendanceStats] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState(null);
 
   useEffect(() => {
-    // 1. ONE-TIME WIPE FOR INCORRECT ROLL NUMBERS
+    // 1. One-time reset check
     const HAS_RESET = localStorage.getItem("reset_wrong_rollno_v1");
     if (!HAS_RESET) {
       localStorage.clear();
@@ -15,7 +17,7 @@ export default function Student() {
       localStorage.setItem("reset_wrong_rollno_v1", "true");
     }
 
-    // 2. Load saved student if exists
+    // 2. Load saved student profile
     const savedStudent = localStorage.getItem("student_profile");
     if (savedStudent) {
       const parsed = JSON.parse(savedStudent);
@@ -24,17 +26,26 @@ export default function Student() {
     }
   }, []);
 
-  // Fetch Weekly & Monthly Attendance Stats
+  // 3. Auto-refresh student stats every 5 seconds
+  useEffect(() => {
+    if (studentInfo?.roll_no) {
+      fetchStudentStats(studentInfo.roll_no);
+      const interval = setInterval(() => {
+        fetchStudentStats(studentInfo.roll_no);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [studentInfo]);
+
   const fetchStudentStats = async (rollNo) => {
     try {
       const res = await axios.get(`/api/student/stats?roll_no=${rollNo}`);
       setAttendanceStats(res.data);
     } catch (err) {
-      console.error("Error fetching student stats:", err);
+      console.error("Error fetching stats:", err);
     }
   };
 
-  // Save new roll number registration
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!rollNoInput.trim()) return;
@@ -47,112 +58,196 @@ export default function Student() {
         setStudentInfo(studentData);
         fetchStudentStats(studentData.roll_no);
       } else {
-        alert("Roll Number not found in system. Please contact faculty.");
+        alert("Roll Number not found in system.");
       }
     } catch (err) {
       alert("Error verifying Roll Number.");
     }
   };
 
-  // Reset local registration manually
   const handleClearProfile = () => {
     localStorage.removeItem("student_profile");
     setStudentInfo(null);
     setAttendanceStats(null);
   };
 
+  // 4. QR LOCATION VERIFICATION & AUTOMATIC PRESENT CONVERSION
+  const handleScanAndMarkAttendance = () => {
+    if (!navigator.geolocation) {
+      setScanMessage({ type: 'error', text: 'Geolocation is not supported on this device.' });
+      return;
+    }
+
+    // Extract sessionId from URL params if student opened QR URL directly
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('sessionId');
+
+    if (!sessionId) {
+      setScanMessage({ type: 'error', text: 'No active session found. Please scan the QR code displayed by your faculty.' });
+      return;
+    }
+
+    setScanning(true);
+    setScanMessage({ type: 'info', text: 'Verifying GPS Location...' });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const res = await axios.post('/api/qr/verify-student', {
+            rollNo: studentInfo.roll_no,
+            studentLat: position.coords.latitude,
+            studentLng: position.coords.longitude,
+            sessionId: sessionId
+          });
+
+          if (res.data.success) {
+            setScanMessage({ type: 'success', text: '✅ Location Verified! Attendance marked as PRESENT and locked.' });
+            fetchStudentStats(studentInfo.roll_no);
+          }
+        } catch (err) {
+          const errorMsg = err.response?.data?.message || 'Verification failed. Make sure you are inside the classroom.';
+          setScanMessage({ type: 'error', text: `❌ ${errorMsg}` });
+        } finally {
+          setScanning(false);
+        }
+      },
+      (error) => {
+        setScanning(false);
+        setScanMessage({ type: 'error', text: '📍 Please enable GPS/Location permissions on your browser to mark attendance.' });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px' }}>
-      
-      {/* STEP A: IF NO SAVED STUDENT -> SHOW REGISTRATION FORM */}
-      {!studentInfo ? (
-        <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-          <h2>🎓 Student Registration</h2>
-          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>
-            Enter your Roll Number once to connect your device.
-          </p>
-
-          <form onSubmit={handleRegister}>
-            <input
-              type="text"
-              placeholder="Enter Roll Number (e.g. 21CS01)"
-              value={rollNoInput}
-              onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid #cbd5e1',
-                marginBottom: '15px',
-                textAlign: 'center',
-                fontWeight: '700'
-              }}
-              required
-            />
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
-              Save & Continue
-            </button>
-          </form>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%)',
+      color: '#f8fafc',
+      padding: '24px 16px',
+      fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
+    }}>
+      <div style={{ maxWidth: '440px', margin: '0 auto' }}>
+        
+        {/* BRANDING HEADER */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '28px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #6366f1, #a855f7)', display: 'grid', placeItems: 'center', fontWeight: '800', fontSize: '1.2rem' }}>⚡</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px', margin: 0, background: 'linear-gradient(to right, #ffffff, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SmartAttend</h2>
         </div>
-      ) : (
 
-        /* STEP B: STUDENT DASHBOARD + ATTENDANCE PERCENTAGE */
-        <div>
-          {/* Header Card */}
-          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0 }}>{studentInfo.full_name}</h3>
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  Roll: <strong>{studentInfo.roll_no}</strong> | Dept: {studentInfo.dept_code}
-                </span>
+        {!studentInfo ? (
+          /* REGISTRATION CARD */
+          <div style={{ background: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(16px)', borderRadius: '24px', padding: '28px 24px', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎓</div>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700' }}>Connect Your Device</h3>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '6px' }}>Enter your Roll Number once to initialize your mobile dashboard.</p>
+            </div>
+
+            <form onSubmit={handleRegister}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#a855f7', textTransform: 'uppercase', tracking: '1px', marginBottom: '8px' }}>ROLL NUMBER</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2585351122"
+                  value={rollNoInput}
+                  onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
+                  style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(15, 23, 42, 0.6)', color: '#fff', fontSize: '1rem', fontWeight: '700', textAlign: 'center', outline: 'none' }}
+                  required
+                />
               </div>
-              <button 
-                onClick={handleClearProfile} 
-                style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}
-              >
-                Change Roll No
+              <button type="submit" style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'linear-gradient(135deg, #6366f1, #9333ea)', color: '#fff', fontWeight: '700', fontSize: '0.95rem', cursor: 'pointer', boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)' }}>
+                Save Profile & Continue →
+              </button>
+            </form>
+          </div>
+        ) : (
+          /* MODERN STUDENT DASHBOARD */
+          <div>
+            
+            {/* PROFILE CARD */}
+            <div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>STUDENT ACCOUNT</span>
+                <h3 style={{ margin: '2px 0 0 0', fontSize: '1.15rem', fontWeight: '700' }}>{studentInfo.full_name}</h3>
+                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Roll: <strong style={{ color: '#fff' }}>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
+              </div>
+              <button onClick={handleClearProfile} style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', borderRadius: '10px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }}>
+                Switch
               </button>
             </div>
-          </div>
 
-          {/* ATTENDANCE PERCENTAGE CARDS */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-            
-            {/* WEEKLY PERCENTAGE */}
-            <div className="card" style={{ padding: '16px', textAlign: 'center', borderLeft: '4px solid #4f46e5' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>WEEKLY ATTENDANCE</span>
-              <h2 style={{ fontSize: '1.8rem', color: '#4f46e5', margin: '8px 0 0 0' }}>
-                {attendanceStats ? `${attendanceStats.weeklyPercentage}%` : '...'}
-              </h2>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                {attendanceStats ? `${attendanceStats.weeklyPresent}/${attendanceStats.weeklyTotal} Hours` : ''}
-              </span>
+            {/* PERCENTAGE METRICS GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              
+              {/* WEEKLY METRIC */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '18px 14px', border: '1px solid rgba(99, 102, 241, 0.2)', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#818cf8', textTransform: 'uppercase' }}>WEEKLY RATE</span>
+                <div style={{ fontSize: '2rem', fontWeight: '800', margin: '6px 0', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  {attendanceStats ? `${attendanceStats.weeklyPercentage}%` : '...'}
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
+                  {attendanceStats ? `${attendanceStats.weeklyPresent}/${attendanceStats.weeklyTotal} Attended` : ''}
+                </span>
+              </div>
+
+              {/* MONTHLY METRIC */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '18px 14px', border: '1px solid rgba(16, 185, 129, 0.2)', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#34d399', textTransform: 'uppercase' }}>MONTHLY RATE</span>
+                <div style={{ fontSize: '2rem', fontWeight: '800', margin: '6px 0', background: 'linear-gradient(to right, #34d399, #a7f3d0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  {attendanceStats ? `${attendanceStats.monthlyPercentage}%` : '...'}
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
+                  {attendanceStats ? `${attendanceStats.monthlyPresent}/${attendanceStats.monthlyTotal} Attended` : ''}
+                </span>
+              </div>
+
             </div>
 
-            {/* MONTHLY PERCENTAGE */}
-            <div className="card" style={{ padding: '16px', textAlign: 'center', borderLeft: '4px solid #10b981' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>MONTHLY ATTENDANCE</span>
-              <h2 style={{ fontSize: '1.8rem', color: '#10b981', margin: '8px 0 0 0' }}>
-                {attendanceStats ? `${attendanceStats.monthlyPercentage}%` : '...'}
-              </h2>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                {attendanceStats ? `${attendanceStats.monthlyPresent}/${attendanceStats.monthlyTotal} Hours` : ''}
-              </span>
+            {/* ATTENDANCE ACTION CARD */}
+            <div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', textAlign: 'center' }}>
+              <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '700' }}>Classroom Check-In</h4>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 16px 0' }}>Verify GPS position against teacher classroom coordinates.</p>
+
+              <button
+                onClick={handleScanAndMarkAttendance}
+                disabled={scanning}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: scanning ? '#475569' : 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '0.95rem',
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  boxShadow: scanning ? 'none' : '0 8px 20px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                {scanning ? '📡 Verifying GPS Location...' : '📍 Verify Location & Mark Present'}
+              </button>
+
+              {scanMessage && (
+                <div style={{
+                  marginTop: '14px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  fontSize: '0.82rem',
+                  fontWeight: '600',
+                  background: scanMessage.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : scanMessage.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                  border: `1px solid ${scanMessage.type === 'success' ? '#10b981' : scanMessage.type === 'error' ? '#ef4444' : '#6366f1'}`,
+                  color: scanMessage.type === 'success' ? '#34d399' : scanMessage.type === 'error' ? '#f87171' : '#a5b4fc'
+                }}>
+                  {scanMessage.text}
+                </div>
+              )}
             </div>
 
           </div>
+        )}
 
-          {/* QR SCAN BUTTON AREA */}
-          <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
-            <h4>Mark Attendance</h4>
-            <p style={{ fontSize: '0.85rem', color: '#64748b' }}>
-              Make sure location (GPS) is enabled on your device when submitting.
-            </p>
-          </div>
-        </div>
-      )}
-
+      </div>
     </div>
   );
 }
