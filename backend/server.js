@@ -91,7 +91,6 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 
 // ==================== ADMIN AUTHENTICATION ====================
 
-// ADMIN LOGIN API
 app.post('/api/admin/login', async (req, res) => {
   const { adminId, password } = req.body;
 
@@ -109,7 +108,6 @@ app.post('/api/admin/login', async (req, res) => {
 
 // ==================== FACULTY & USER ROUTES ====================
 
-// TEACHER LOGIN API
 app.post('/api/login', async (req, res) => {
   const { teacherId, password } = req.body;
 
@@ -125,7 +123,84 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// GET STUDENTS FILTERED BY DEPT, YEAR, SECTION (FIXES DASHBOARD BLANK TABLE)
+// ==================== STUDENT REGISTRATION & STATS ====================
+
+// 1. AUTO-REGISTERING STUDENT VERIFY ENDPOINT
+app.get('/api/student/verify', async (req, res) => {
+  try {
+    const { roll_no } = req.query;
+    if (!roll_no) {
+      return res.status(400).json({ success: false, message: 'Roll number is required' });
+    }
+
+    const cleanRollNo = roll_no.trim().toUpperCase();
+
+    // Search for existing student record
+    let student = await Student.findOne({ 
+      roll_no: { $regex: new RegExp(`^${cleanRollNo}$`, 'i') } 
+    });
+
+    // Auto-create student if missing
+    if (!student) {
+      student = await Student.create({
+        roll_no: cleanRollNo,
+        full_name: `Student (${cleanRollNo})`,
+        parent_phone: '0000000000',
+        dept_code: 'MCA',
+        year_level: '1st Year',
+        section: 'Sec A'
+      });
+      console.log(`✅ Auto-registered new student: ${cleanRollNo}`);
+    }
+
+    res.json({ success: true, student });
+  } catch (err) {
+    console.error("Error verifying/registering student:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
+app.get('/api/student/stats', async (req, res) => {
+  try {
+    const { roll_no } = req.query;
+    
+    const now = new Date();
+    
+    const weekAgo = new Date();
+    weekAgo.setDate(now.getDate() - 7);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+
+    const monthAgo = new Date();
+    monthAgo.setDate(now.getDate() - 30);
+    const monthAgoStr = monthAgo.toISOString().split('T')[0];
+
+    const allRecords = await Attendance.find({ roll_no });
+
+    const weeklyRecords = allRecords.filter(r => r.date >= weekAgoStr);
+    const weeklyTotal = weeklyRecords.length;
+    const weeklyPresent = weeklyRecords.filter(r => r.status === 'Present').length;
+    const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 100;
+
+    const monthlyRecords = allRecords.filter(r => r.date >= monthAgoStr);
+    const monthlyTotal = monthlyRecords.length;
+    const monthlyPresent = monthlyRecords.filter(r => r.status === 'Present').length;
+    const monthlyPercentage = monthlyTotal > 0 ? Math.round((monthlyPresent / monthlyTotal) * 100) : 100;
+
+    res.json({
+      weeklyTotal,
+      weeklyPresent,
+      weeklyPercentage,
+      monthlyTotal,
+      monthlyPresent,
+      monthlyPercentage
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET STUDENTS FILTERED BY DEPT, YEAR, SECTION
 app.get('/api/students', async (req, res) => {
   try {
     const { dept, year, section } = req.query;
@@ -175,7 +250,7 @@ app.get('/api/attendance/live', async (req, res) => {
   }
 });
 
-// SAVE / SUBMIT ATTENDANCE (SINGLE CONSOLIDATED ROUTE)
+// SAVE / SUBMIT ATTENDANCE
 app.post('/api/attendance/submit', async (req, res) => {
   const { date, hour, teacherId, dept, records } = req.body;
 
@@ -258,16 +333,23 @@ app.post('/api/qr/verify-student', async (req, res) => {
   }
 
   try {
-    const student = await Student.findOne({ roll_no: rollNo.toUpperCase(), dept_code: session.dept });
+    let student = await Student.findOne({ roll_no: rollNo.toUpperCase(), dept_code: session.dept });
     
     if (!student) {
-      return res.status(400).json({ success: false, message: `Roll No ${rollNo} is not registered in ${session.dept} department!` });
+      student = await Student.create({
+        roll_no: rollNo.toUpperCase(),
+        full_name: `Student (${rollNo})`,
+        parent_phone: '0000000000',
+        dept_code: session.dept,
+        year_level: session.year || '1st Year',
+        section: session.section || 'Sec A'
+      });
     }
 
     await Attendance.findOneAndUpdate(
       { roll_no: rollNo.toUpperCase(), dept_code: session.dept, hour: session.hour, date: session.date },
       { status: 'Present', teacher_id: session.teacherId },
-      { upsert: true, new: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     res.json({ 
@@ -471,7 +553,7 @@ app.post('/api/verify-otp-reset-password', async (req, res) => {
   }
 });
 
-// Catch-all handler to serve React SPA on unknown routes
+// CATCH-ALL ROUTE (Must stay right above app.listen)
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
@@ -480,86 +562,4 @@ app.get('/{*splat}', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
-});
-
-
-
-// NEW AUTO-REGISTERING VERIFY ENDPOINT
-app.get('/api/student/verify', async (req, res) => {
-  try {
-    const { roll_no } = req.query;
-    if (!roll_no) {
-      return res.status(400).json({ success: false, message: 'Roll number is required' });
-    }
-
-    const cleanRollNo = roll_no.trim().toUpperCase();
-
-    // 1. Search for existing student record
-    let student = await Student.findOne({ 
-      roll_no: { $regex: new RegExp(`^${cleanRollNo}$`, 'i') } 
-    });
-
-    // 2. If student is not registered in MongoDB yet, automatically create their account!
-    if (!student) {
-      student = await Student.create({
-        roll_no: cleanRollNo,
-        full_name: `Student (${cleanRollNo})`,
-        parent_phone: '0000000000',
-        dept_code: 'MCA',
-        year_level: '1st Year',
-        section: 'Sec A'
-      });
-      console.log(`✅ Auto-registered new student: ${cleanRollNo}`);
-    }
-
-    res.json({ success: true, student });
-  } catch (err) {
-    console.error("Error verifying/registering student:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 2. CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
-app.get('/api/student/stats', async (req, res) => {
-  try {
-    const { roll_no } = req.query;
-    
-    const now = new Date();
-    
-    // Start of Week (7 days ago)
-    const weekAgo = new Date();
-    weekAgo.setDate(now.getDate() - 7);
-    const weekAgoStr = weekAgo.toISOString().split('T')[0];
-
-    // Start of Month (30 days ago)
-    const monthAgo = new Date();
-    monthAgo.setDate(now.getDate() - 30);
-    const monthAgoStr = monthAgo.toISOString().split('T')[0];
-
-    // Fetch Attendance Records
-    const allRecords = await Attendance.find({ roll_no });
-
-    // Weekly Stats Calculation
-    const weeklyRecords = allRecords.filter(r => r.date >= weekAgoStr);
-    const weeklyTotal = weeklyRecords.length;
-    const weeklyPresent = weeklyRecords.filter(r => r.status === 'Present').length;
-    const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 100;
-
-    // Monthly Stats Calculation
-    const monthlyRecords = allRecords.filter(r => r.date >= monthAgoStr);
-    const monthlyTotal = monthlyRecords.length;
-    const monthlyPresent = monthlyRecords.filter(r => r.status === 'Present').length;
-    const monthlyPercentage = monthlyTotal > 0 ? Math.round((monthlyPresent / monthlyTotal) * 100) : 100;
-
-    res.json({
-      weeklyTotal,
-      weeklyPresent,
-      weeklyPercentage,
-      monthlyTotal,
-      monthlyPresent,
-      monthlyPercentage
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
 });
