@@ -484,18 +484,37 @@ app.listen(PORT, '0.0.0.0', () => {
 
 
 
-// 1. VERIFY STUDENT ROLL NUMBER
+// NEW AUTO-REGISTERING VERIFY ENDPOINT
 app.get('/api/student/verify', async (req, res) => {
   try {
     const { roll_no } = req.query;
-    const student = await Student.findOne({ roll_no: new RegExp(`^${roll_no}$`, 'i') });
-    
-    if (student) {
-      res.json({ success: true, student });
-    } else {
-      res.json({ success: false, message: 'Student not found' });
+    if (!roll_no) {
+      return res.status(400).json({ success: false, message: 'Roll number is required' });
     }
+
+    const cleanRollNo = roll_no.trim().toUpperCase();
+
+    // 1. Search for existing student record
+    let student = await Student.findOne({ 
+      roll_no: { $regex: new RegExp(`^${cleanRollNo}$`, 'i') } 
+    });
+
+    // 2. If student is not registered in MongoDB yet, automatically create their account!
+    if (!student) {
+      student = await Student.create({
+        roll_no: cleanRollNo,
+        full_name: `Student (${cleanRollNo})`,
+        parent_phone: '0000000000',
+        dept_code: 'MCA',
+        year_level: '1st Year',
+        section: 'Sec A'
+      });
+      console.log(`✅ Auto-registered new student: ${cleanRollNo}`);
+    }
+
+    res.json({ success: true, student });
   } catch (err) {
+    console.error("Error verifying/registering student:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
