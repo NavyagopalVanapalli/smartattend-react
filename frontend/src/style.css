@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {
   /* Base Glass Light Palette */
   --bg-gradient: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
@@ -26,19 +28,29 @@
   --blur-amount: blur(16px);
 }
 
-/* DARK MODE GLASS PALETTE */
+/* SLEEK MODERN DARK MODE GLASS OVERRIDES */
 body.dark-mode {
-  /* SLEEK MODERN DARK THEME */
   --bg-main: #090d16;
-  --card-bg: #111827;
+  --card-bg: rgba(17, 24, 39, 0.75);
+  --card-bg-solid: rgba(17, 24, 39, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-highlight: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.5);
+  
   --text-main: #f9fafb;
   --text-muted: #9ca3af;
-  --glass-border: #1f2937;
+  --border-color: rgba(255, 255, 255, 0.1);
+  
   --primary: #6366f1;
   --primary-hover: #4f46e5;
-  --success: #10b981;
+  --primary-light: rgba(99, 102, 241, 0.2);
+  
   --danger: #f87171;
-  --card-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.5);
+  --danger-bg: rgba(248, 113, 113, 0.2);
+  --modal-overlay: rgba(0, 0, 0, 0.75);
+  
+  background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%) !important;
+  background-attachment: fixed !important;
 }
 
 * {
@@ -126,9 +138,7 @@ body {
   -webkit-backdrop-filter: var(--blur-amount);
 }
 
-.btn:active {
-  transform: scale(0.97);
-}
+.btn:active { transform: scale(0.97); }
 
 .btn-primary {
   background: var(--primary);
@@ -175,21 +185,21 @@ body {
 .filter-item { display: flex; flex-direction: column; }
 .filter-item label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.03em; }
 
-.filter-item select, .filter-item input {
+input, select {
   padding: 0.65rem 0.85rem;
   border-radius: 12px;
-  border: 1px solid var(--glass-border);
-  background: var(--card-bg);
+  border: 1px solid var(--glass-border) !important;
+  background: var(--card-bg) !important;
   backdrop-filter: var(--blur-amount);
   -webkit-backdrop-filter: var(--blur-amount);
-  color: var(--text-main);
+  color: var(--text-main) !important;
   font-size: 0.9rem;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.filter-item select:focus, .filter-item input:focus {
-  border-color: var(--primary);
+input:focus, select:focus {
+  border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px var(--primary-light);
 }
 
@@ -332,15 +342,6 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
 
 .input-group { margin-bottom: 1rem; text-align: left; }
 .input-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem; }
-.input-group input {
-  width: 100%;
-  padding: 0.7rem 0.9rem;
-  border-radius: 10px;
-  border: 1px solid var(--glass-border);
-  background: var(--card-bg);
-  color: var(--text-main);
-  outline: none;
-}
 
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
 
@@ -420,24 +421,6 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
 
 .lms-input-box { width: 100%; max-width: 280px; margin-bottom: 1.1rem; }
 
-.lms-input-box input {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  font-size: 0.9rem;
-  background: var(--card-bg);
-  backdrop-filter: var(--blur-amount);
-  color: var(--text-main);
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.lms-input-box input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
 .lms-btn-submit {
   width: 100%; max-width: 280px;
   padding: 0.8rem 0;
@@ -505,8 +488,7 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
   .lms-right-panel { padding: 2rem 1.5rem; }
 }
 
-
-
+/* DARK MODE CARD OVERRIDES */
 body.dark-mode .card {
   background-color: var(--card-bg) !important;
   border-color: var(--glass-border) !important;
@@ -520,7 +502,7 @@ body.dark-mode select {
   border-color: #374151 !important;
 }
 
-
+/* SLIDE-IN DELETION TOAST ANIMATION */
 .toast-container {
   position: fixed;
   bottom: 24px;
