@@ -165,17 +165,14 @@ export default function Student() {
           /* MODERN STUDENT DASHBOARD */
           <div>
             
-            {/* PROFILE CARD */}
-            <div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>STUDENT ACCOUNT</span>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '1.15rem', fontWeight: '700' }}>{studentInfo.full_name}</h3>
-                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Roll: <strong style={{ color: '#fff' }}>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
-              </div>
-              <button onClick={handleClearProfile} style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', borderRadius: '10px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }}>
-                Switch
-              </button>
-            </div>
+            {/* PROFILE CARD WITHOUT SWITCH BUTTON (PREVENTS PROXY LOGINS) */}
+<div style={{ background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(16px)', borderRadius: '20px', padding: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '16px' }}>
+  <div>
+    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>LINKED DEVICE</span>
+    <h3 style={{ margin: '2px 0 0 0', fontSize: '1.15rem', fontWeight: '700' }}>{studentInfo.full_name}</h3>
+    <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Roll: <strong style={{ color: '#fff' }}>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
+  </div>
+</div>
 
             {/* PERCENTAGE METRICS GRID */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>

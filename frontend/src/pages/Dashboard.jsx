@@ -252,16 +252,25 @@ const fetchLiveAttendanceOnly = async () => {
     window.open(url, '_blank');
   };
 
-  // Delete Student
-  const handleDeleteStudent = async (rollNo) => {
-    if (!confirm(`Delete student ${rollNo}?`)) return;
-    try {
-      await axios.delete(`/api/students/delete?roll_no=${rollNo}&dept_code=${filters.dept}`);
-      fetchStudentsAndAttendance();
-    } catch (err) {
-      alert("Error deleting student.");
+  // DELETE STUDENT WITHOUT FULL PAGE REFRESH (Issue 1 Fix)
+const handleDeleteStudent = async (rollNo) => {
+  if (!confirm(`Are you sure you want to delete student ${rollNo}?`)) return;
+
+  try {
+    const res = await axios.delete(`/api/students/delete?roll_no=${rollNo}&dept_code=${filters.dept}`);
+    if (res.data.success) {
+      // Optimistically filter state locally so UI updates instantly without reloading
+      setStudents(prev => prev.filter(s => s.roll_no !== rollNo));
+      setAttendance(prev => {
+        const next = { ...prev };
+        delete next[rollNo];
+        return next;
+      });
     }
-  };
+  } catch (err) {
+    alert("Error deleting student.");
+  }
+};
 
   // Change Password
   const handleChangePassword = async (e) => {

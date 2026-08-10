@@ -135,30 +135,24 @@ app.get('/api/student/verify', async (req, res) => {
 
     const cleanRollNo = roll_no.trim().toUpperCase();
 
-    // Search for existing student record
-    let student = await Student.findOne({ 
+    // STRICT CHECK: Search MongoDB for registered student
+    const student = await Student.findOne({ 
       roll_no: { $regex: new RegExp(`^${cleanRollNo}$`, 'i') } 
     });
 
-    // Auto-create student if missing
     if (!student) {
-      student = await Student.create({
-        roll_no: cleanRollNo,
-        full_name: `Student (${cleanRollNo})`,
-        parent_phone: '0000000000',
-        dept_code: 'MCA',
-        year_level: '1st Year',
-        section: 'Sec A'
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Roll Number not registered in system! Please ask faculty to add your details.' 
       });
-      console.log(`✅ Auto-registered new student: ${cleanRollNo}`);
     }
 
     res.json({ success: true, student });
   } catch (err) {
-    console.error("Error verifying/registering student:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // 2. CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
 // CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
@@ -330,11 +324,11 @@ app.post('/api/qr/verify-student', async (req, res) => {
   const session = activeQrSessions[sessionId];
 
   if (!session || !session.expiresAt) {
-    return res.status(400).json({ success: false, message: "No active QR session found for this class! Ask teacher to generate QR." });
+    return res.status(400).json({ success: false, message: "No active QR session found for this class!" });
   }
 
   if (Date.now() > session.expiresAt) {
-    return res.status(400).json({ success: false, message: "QR Code has expired! Ask teacher to regenerate." });
+    return res.status(400).json({ success: false, message: "QR Code has expired!" });
   }
 
   const distance = getDistanceInMeters(
@@ -344,9 +338,7 @@ app.post('/api/qr/verify-student', async (req, res) => {
     parseFloat(studentLng)
   );
 
-  const MAX_RADIUS_METERS = 500; 
-
-  if (distance > MAX_RADIUS_METERS) {
+  if (distance > 500) {
     return res.status(403).json({ 
       success: false, 
       message: `Location verification failed! You are ${Math.round(distance)}m away from classroom.` 
@@ -354,16 +346,13 @@ app.post('/api/qr/verify-student', async (req, res) => {
   }
 
   try {
-    let student = await Student.findOne({ roll_no: rollNo.toUpperCase(), dept_code: session.dept });
+    // Check if student exists in database
+    const student = await Student.findOne({ roll_no: rollNo.toUpperCase() });
     
     if (!student) {
-      student = await Student.create({
-        roll_no: rollNo.toUpperCase(),
-        full_name: `Student (${rollNo})`,
-        parent_phone: '0000000000',
-        dept_code: session.dept,
-        year_level: session.year || '1st Year',
-        section: session.section || 'Sec A'
+      return res.status(400).json({ 
+        success: false, 
+        message: `Roll No ${rollNo} is not registered in system! Contact faculty.` 
       });
     }
 
@@ -378,7 +367,6 @@ app.post('/api/qr/verify-student', async (req, res) => {
       message: `✅ Attendance marked Present for ${student.full_name} (${rollNo})!` 
     });
   } catch (err) {
-    console.error("Database error during QR attendance:", err);
     res.status(500).json({ success: false, message: "Database error recording attendance." });
   }
 });
@@ -583,4 +571,27 @@ app.get('/{*splat}', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
+});
+
+
+app.post('/api/change-password', async (req, res) => {
+  const { teacherId, currentPassword, newPassword } = req.body;
+
+  try {
+    const teacher = await Teacher.findOne({ teacher_id: teacherId });
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher account not found.' });
+    }
+
+    if (teacher.password_hash !== currentPassword.trim()) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect!' });
+    }
+
+    teacher.password_hash = newPassword.trim();
+    await teacher.save();
+
+    res.json({ success: true, message: 'Password updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });

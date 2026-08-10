@@ -28,29 +28,15 @@
 
 /* DARK MODE GLASS PALETTE */
 body.dark-mode {
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-  --card-bg: rgba(30, 41, 59, 0.55);
-  --card-bg-solid: rgba(30, 41, 59, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-border-highlight: rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
-  
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: rgba(51, 65, 85, 0.6);
-  
+  --bg-main: #0b0f19;
+  --card-bg: #111827;
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  --glass-border: #1f2937;
   --primary: #6366f1;
-  --primary-hover: #818cf8;
-  --primary-light: rgba(99, 102, 241, 0.2);
-  
-  --success: #34d399;
-  --success-bg: rgba(52, 211, 153, 0.2);
-  --danger: #f87171;
-  --danger-bg: rgba(248, 113, 113, 0.2);
-  --warning: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.2);
-  
-  --modal-overlay: rgba(0, 0, 0, 0.65);
+  --success: #10b981;
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
 }
 
 * {
@@ -515,4 +501,19 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
   .lms-book-divider { display: none; }
   .lms-left-panel { border-right: none; border-bottom: 1px solid var(--border-color); padding: 2rem 1.5rem; }
   .lms-right-panel { padding: 2rem 1.5rem; }
+}
+
+
+
+body.dark-mode .card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--text-main) !important;
+}
+
+body.dark-mode input, 
+body.dark-mode select {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
 }
