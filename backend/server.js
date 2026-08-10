@@ -123,9 +123,32 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// FACULTY CHANGE PASSWORD ENDPOINT
+app.post('/api/change-password', async (req, res) => {
+  const { teacherId, currentPassword, newPassword } = req.body;
+
+  try {
+    const teacher = await Teacher.findOne({ teacher_id: teacherId });
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher account not found.' });
+    }
+
+    if (teacher.password_hash !== currentPassword.trim()) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect!' });
+    }
+
+    teacher.password_hash = newPassword.trim();
+    await teacher.save();
+
+    res.json({ success: true, message: 'Password updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ==================== STUDENT REGISTRATION & STATS ====================
 
-// 1. AUTO-REGISTERING STUDENT VERIFY ENDPOINT
+// 1. STRICT STUDENT VERIFICATION
 app.get('/api/student/verify', async (req, res) => {
   try {
     const { roll_no } = req.query;
@@ -135,7 +158,6 @@ app.get('/api/student/verify', async (req, res) => {
 
     const cleanRollNo = roll_no.trim().toUpperCase();
 
-    // STRICT CHECK: Search MongoDB for registered student
     const student = await Student.findOne({ 
       roll_no: { $regex: new RegExp(`^${cleanRollNo}$`, 'i') } 
     });
@@ -153,40 +175,31 @@ app.get('/api/student/verify', async (req, res) => {
   }
 });
 
-
 // 2. CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
-// CALCULATE WEEKLY AND MONTHLY ATTENDANCE STATS
 app.get('/api/student/stats', async (req, res) => {
   try {
     const { roll_no } = req.query;
     
     const now = new Date();
     
-    // Start of Week (7 days ago)
     const weekAgo = new Date();
     weekAgo.setDate(now.getDate() - 7);
     const weekAgoStr = weekAgo.toISOString().split('T')[0];
 
-    // Start of Month (30 days ago)
     const monthAgo = new Date();
     monthAgo.setDate(now.getDate() - 30);
     const monthAgoStr = monthAgo.toISOString().split('T')[0];
 
-    // Fetch Attendance Records
     const allRecords = await Attendance.find({ roll_no });
 
-    // Weekly Stats Calculation
     const weeklyRecords = allRecords.filter(r => r.date >= weekAgoStr);
     const weeklyTotal = weeklyRecords.length;
     const weeklyPresent = weeklyRecords.filter(r => r.status === 'Present').length;
-    // Fix: If total is 0, percentage is 0%
     const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 0;
 
-    // Monthly Stats Calculation
     const monthlyRecords = allRecords.filter(r => r.date >= monthAgoStr);
     const monthlyTotal = monthlyRecords.length;
     const monthlyPresent = monthlyRecords.filter(r => r.status === 'Present').length;
-    // Fix: If total is 0, percentage is 0%
     const monthlyPercentage = monthlyTotal > 0 ? Math.round((monthlyPresent / monthlyTotal) * 100) : 0;
 
     res.json({
@@ -196,6 +209,65 @@ app.get('/api/student/stats', async (req, res) => {
       monthlyTotal,
       monthlyPresent,
       monthlyPercentage
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. DETAILED ADVANCED STUDENT ATTENDANCE STATS (WORKING DAYS, SUBJECTS & BAR GRAPH)
+app.get('/api/student/detailed-stats', async (req, res) => {
+  try {
+    const { roll_no } = req.query;
+    if (!roll_no) return res.status(400).json({ success: false, message: 'Roll number required' });
+
+    const cleanRoll = roll_no.trim().toUpperCase();
+    const records = await Attendance.find({ roll_no: cleanRoll });
+
+    const totalPresent = records.filter(r => r.status === 'Present').length;
+    const totalAbsent = records.filter(r => r.status === 'Absent').length;
+    const totalWorkingDays = new Set(records.map(r => r.date)).size;
+
+    // Subject Breakdown
+    const subjectMap = {};
+    records.forEach(r => {
+      const subj = r.hour || 'General Class';
+      if (!subjectMap[subj]) {
+        subjectMap[subj] = { present: 0, absent: 0, totalPeriods: 0 };
+      }
+      subjectMap[subj].totalPeriods += 1;
+      if (r.status === 'Present') subjectMap[subj].present += 1;
+      else subjectMap[subj].absent += 1;
+    });
+
+    // Monthly Bar Graph Data
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlyBarDataMap = {};
+
+    records.forEach(r => {
+      const dateObj = new Date(r.date);
+      const mKey = `${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+      
+      if (!monthlyBarDataMap[mKey]) {
+        monthlyBarDataMap[mKey] = { monthLabel: mKey, presentDaysCount: 0, totalDaysCount: 0, presentDates: new Set() };
+      }
+      if (r.status === 'Present') {
+        monthlyBarDataMap[mKey].presentDates.add(r.date);
+      }
+    });
+
+    const monthlyBarGraph = Object.values(monthlyBarDataMap).map(m => ({
+      monthLabel: m.monthLabel,
+      presentDaysCount: m.presentDates.size
+    }));
+
+    res.json({
+      success: true,
+      totalWorkingDays,
+      totalPresent,
+      totalAbsent,
+      subjects: subjectMap,
+      monthlyBarGraph
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -231,7 +303,7 @@ app.get('/api/attendance/records', async (req, res) => {
   }
 });
 
-// GET REAL-TIME ATTENDANCE STATUS (FIXED MATCHING)
+// GET REAL-TIME ATTENDANCE STATUS
 app.get('/api/attendance/live', async (req, res) => {
   const { dept, hour, date, teacherId } = req.query;
 
@@ -240,7 +312,6 @@ app.get('/api/attendance/live', async (req, res) => {
       return res.json([]);
     }
 
-    // Clean hour string to handle both "Hour 1" and "Hour 1 (09:00 AM)"
     const hourPrefix = hour ? hour.split(' ')[0] + ' ' + (hour.split(' ')[1] || '') : '';
 
     const query = {
@@ -346,7 +417,6 @@ app.post('/api/qr/verify-student', async (req, res) => {
   }
 
   try {
-    // Check if student exists in database
     const student = await Student.findOne({ roll_no: rollNo.toUpperCase() });
     
     if (!student) {
@@ -394,7 +464,7 @@ app.get('/api/admin/stats', async (req, res) => {
 });
 
 app.post('/api/admin/teachers', async (req, res) => {
-  const { teacher_id, full_name, email, phone, dept_code, password_hash } = req.body;
+  const { teacher_id, full_name, email, phone, dept_code, branch, password_hash } = req.body;
   
   try {
     await Teacher.create({
@@ -402,7 +472,7 @@ app.post('/api/admin/teachers', async (req, res) => {
       full_name: full_name.trim(),
       email: email.trim(),
       phone: phone ? phone.trim() : null,
-      dept_code: dept_code ? dept_code.trim() : 'CSE',
+      dept_code: branch || dept_code || 'CSE',
       password_hash: password_hash ? password_hash.trim() : 'admin123'
     });
     res.json({ success: true, message: "Faculty added successfully!" });
@@ -571,27 +641,4 @@ app.get('/{*splat}', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
-});
-
-
-app.post('/api/change-password', async (req, res) => {
-  const { teacherId, currentPassword, newPassword } = req.body;
-
-  try {
-    const teacher = await Teacher.findOne({ teacher_id: teacherId });
-    if (!teacher) {
-      return res.status(404).json({ success: false, message: 'Teacher account not found.' });
-    }
-
-    if (teacher.password_hash !== currentPassword.trim()) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect!' });
-    }
-
-    teacher.password_hash = newPassword.trim();
-    await teacher.save();
-
-    res.json({ success: true, message: 'Password updated successfully!' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
 });

@@ -347,7 +347,6 @@ const handleDeleteStudent = async (rollNo) => {
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px' }}>DEPARTMENT</label>
             <select value={filters.dept} onChange={e => setFilters({...filters, dept: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
               <option value="MCA">MCA</option>
-              <option value="CSE">CSE</option>
               <option value="MBA">MBA</option>
             </select>
           </div>
