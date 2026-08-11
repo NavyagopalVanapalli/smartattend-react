@@ -2,20 +2,28 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+
+const getLocalTodayString = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const activeTeacher = JSON.parse(sessionStorage.getItem("activeTeacher") || "{}");
 
   // Restrict date selection to today or past dates
-  const todayStr = new Date().toISOString().split('T')[0];
-
+  const todayStr = getLocalTodayString();
   // Filters State
   const [filters, setFilters] = useState({
     dept: activeTeacher.dept_code || 'MCA',
     year: '1st Year',
     sec: 'Sec A',
     hour: 'Hour 1 (09:00 AM)',
-    date: todayStr
+    date: getLocalTodayString()
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -358,6 +366,26 @@ const fetchLiveAttendanceOnly = async () => {
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px' }}>DATE</label>
             <input type="date" max={todayStr} value={filters.date} onChange={e => setFilters({...filters, date: e.target.value})} style={{ width: '100%', padding: '10px' }} />
+
+            <div>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>DATE</label>
+    <button 
+      type="button"
+      onClick={() => setFilters({ ...filters, date: getLocalTodayString() })}
+      style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer' }}
+    >
+      📅 Set Today
+    </button>
+  </div>
+  <input 
+    type="date" 
+    max={todayStr} 
+    value={filters.date} 
+    onChange={e => setFilters({ ...filters, date: e.target.value })} 
+    style={{ width: '100%', padding: '10px' }} 
+  />
+</div>
           </div>
         </div>
 
