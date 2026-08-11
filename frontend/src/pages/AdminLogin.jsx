@@ -11,7 +11,12 @@ export default function AdminLogin() {
 
   useEffect(() => {
     document.body.classList.remove("dark-mode");
-  }, []);
+    
+    // Redirect automatically if admin is already logged in
+    if (localStorage.getItem("isAdminLoggedIn") === "true") {
+      navigate('/admin');
+    }
+  }, [navigate]);
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
@@ -28,8 +33,9 @@ export default function AdminLogin() {
       });
 
       if (res.data && res.data.success) {
-        sessionStorage.setItem("isAdminLoggedIn", "true");
-        sessionStorage.setItem("activeAdmin", JSON.stringify(res.data.admin));
+        // Save persistent login session to localStorage
+        localStorage.setItem("isAdminLoggedIn", "true");
+        localStorage.setItem("activeAdmin", JSON.stringify(res.data.admin));
         navigate('/admin');
       } else {
         alert("❌ " + (res.data?.message || "Invalid Admin Credentials"));

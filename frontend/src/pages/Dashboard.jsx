@@ -87,37 +87,37 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  const fetchLiveAttendanceOnly = async () => {
-    try {
-      const resLive = await axios.get(
-        `/api/attendance/live?dept=${filters.dept}&hour=${encodeURIComponent(filters.hour)}&date=${filters.date}`
-      );
-      const liveRecords = resLive.data || [];
+const fetchLiveAttendanceOnly = async () => {
+  try {
+    const resLive = await axios.get(
+      `/api/attendance/live?dept=${filters.dept}&hour=${encodeURIComponent(filters.hour)}&date=${filters.date}&teacherId=${activeTeacher.teacher_id}`
+    );
+    const liveRecords = resLive.data || [];
 
-      if (liveRecords.length > 0) {
-        setAttendance(prev => {
-          let hasChanges = false;
-          const nextState = { ...prev };
+    if (liveRecords.length > 0) {
+      setAttendance(prev => {
+        let hasChanges = false;
+        const nextState = { ...prev };
 
-          liveRecords.forEach(r => {
-            const roll = r.roll_no;
-            if (!nextState[roll] || !nextState[roll].checked) {
-              nextState[roll] = {
-                checked: true,
-                smsStatus: nextState[roll]?.smsStatus || "Not Sent",
-                locked: true
-              };
-              hasChanges = true;
-            }
-          });
-
-          return hasChanges ? nextState : prev;
+        liveRecords.forEach(r => {
+          const roll = r.roll_no;
+          if (!nextState[roll] || !nextState[roll].checked) {
+            nextState[roll] = {
+              checked: true,
+              smsStatus: nextState[roll]?.smsStatus || "Not Sent",
+              locked: true
+            };
+            hasChanges = true;
+          }
         });
-      }
-    } catch (err) {
-      // Silent handling for background polling
+
+        return hasChanges ? nextState : prev;
+      });
     }
-  };
+  } catch (err) {
+    // Silent catch
+  }
+};
 
   const handleGenerateQr = () => {
     if (!navigator.geolocation) {

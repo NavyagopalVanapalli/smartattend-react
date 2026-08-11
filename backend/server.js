@@ -303,7 +303,8 @@ app.get('/api/attendance/records', async (req, res) => {
   }
 });
 
-// GET REAL-TIME ATTENDANCE STATUS
+
+// GET REAL-TIME ATTENDANCE STATUS ISOLATED PER FACULTY
 app.get('/api/attendance/live', async (req, res) => {
   const { dept, hour, date, teacherId } = req.query;
 
@@ -324,8 +325,9 @@ app.get('/api/attendance/live', async (req, res) => {
       query.hour = { $regex: new RegExp(hourPrefix.trim(), 'i') };
     }
 
+    // STRICT MULTI-TEACHER ISOLATION: Scopes live updates strictly to the logged-in teacher
     if (teacherId) {
-      query.teacher_id = teacherId;
+      query.teacher_id = teacherId.trim();
     }
 
     const results = await Attendance.find(query, 'roll_no status');
