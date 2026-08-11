@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-
+// HELPER: Get exact local YYYY-MM-DD date string (Prevents UTC timezone offsets)
 const getLocalTodayString = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -15,15 +15,15 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const activeTeacher = JSON.parse(sessionStorage.getItem("activeTeacher") || "{}");
 
-  // Restrict date selection to today or past dates
   const todayStr = getLocalTodayString();
-  // Filters State
+
+  // Filters State - Defaults to local today
   const [filters, setFilters] = useState({
     dept: activeTeacher.dept_code || 'MCA',
     year: '1st Year',
     sec: 'Sec A',
     hour: 'Hour 1 (09:00 AM)',
-    date: getLocalTodayString()
+    date: todayStr
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +41,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
+  // 1. Initial Load & Filter Change Effect
   useEffect(() => {
     if (!activeTeacher.teacher_id) {
       navigate('/');
@@ -50,6 +51,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     fetchStudentsAndAttendance();
   }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
 
+  // 2. Real-time Live Polling Every 3 Seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchLiveAttendanceOnly();
@@ -95,37 +97,37 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
-const fetchLiveAttendanceOnly = async () => {
-  try {
-    const resLive = await axios.get(
-      `/api/attendance/live?dept=${filters.dept}&hour=${encodeURIComponent(filters.hour)}&date=${filters.date}&teacherId=${activeTeacher.teacher_id}`
-    );
-    const liveRecords = resLive.data || [];
+  const fetchLiveAttendanceOnly = async () => {
+    try {
+      const resLive = await axios.get(
+        `/api/attendance/live?dept=${filters.dept}&hour=${encodeURIComponent(filters.hour)}&date=${filters.date}&teacherId=${activeTeacher.teacher_id}`
+      );
+      const liveRecords = resLive.data || [];
 
-    if (liveRecords.length > 0) {
-      setAttendance(prev => {
-        let hasChanges = false;
-        const nextState = { ...prev };
+      if (liveRecords.length > 0) {
+        setAttendance(prev => {
+          let hasChanges = false;
+          const nextState = { ...prev };
 
-        liveRecords.forEach(r => {
-          const roll = r.roll_no;
-          if (!nextState[roll] || !nextState[roll].checked) {
-            nextState[roll] = {
-              checked: true,
-              smsStatus: nextState[roll]?.smsStatus || "Not Sent",
-              locked: true
-            };
-            hasChanges = true;
-          }
+          liveRecords.forEach(r => {
+            const roll = r.roll_no;
+            if (!nextState[roll] || !nextState[roll].checked) {
+              nextState[roll] = {
+                checked: true,
+                smsStatus: nextState[roll]?.smsStatus || "Not Sent",
+                locked: true
+              };
+              hasChanges = true;
+            }
+          });
+
+          return hasChanges ? nextState : prev;
         });
-
-        return hasChanges ? nextState : prev;
-      });
+      }
+    } catch (err) {
+      // Silent catch for background polling
     }
-  } catch (err) {
-    // Silent catch
-  }
-};
+  };
 
   const handleGenerateQr = () => {
     if (!navigator.geolocation) {
@@ -364,28 +366,23 @@ const fetchLiveAttendanceOnly = async () => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px' }}>DATE</label>
-            <input type="date" max={todayStr} value={filters.date} onChange={e => setFilters({...filters, date: e.target.value})} style={{ width: '100%', padding: '10px' }} />
-
-            <div>
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>DATE</label>
-    <button 
-      type="button"
-      onClick={() => setFilters({ ...filters, date: getLocalTodayString() })}
-      style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer' }}
-    >
-      📅 Set Today
-    </button>
-  </div>
-  <input 
-    type="date" 
-    max={todayStr} 
-    value={filters.date} 
-    onChange={e => setFilters({ ...filters, date: e.target.value })} 
-    style={{ width: '100%', padding: '10px' }} 
-  />
-</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', margin: 0 }}>DATE</label>
+              <button 
+                type="button"
+                onClick={() => setFilters({ ...filters, date: getLocalTodayString() })}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer' }}
+              >
+                📅 Today
+              </button>
+            </div>
+            <input 
+              type="date" 
+              max={todayStr} 
+              value={filters.date} 
+              onChange={e => setFilters({ ...filters, date: e.target.value })} 
+              style={{ width: '100%', padding: '10px' }} 
+            />
           </div>
         </div>
 
