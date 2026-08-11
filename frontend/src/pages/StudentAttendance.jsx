@@ -9,14 +9,27 @@ export default function Student() {
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState(null);
 
-  useEffect(() => {
+ useEffect(() => {
+  // FORCE ONE-TIME CLEAR FOR ALL STUDENT MOBILES
+  const RESET_KEY = "reset_student_logins_v2";
+  const HAS_RESET = localStorage.getItem(RESET_KEY);
+
+  if (!HAS_RESET) {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem(RESET_KEY, "true");
+    setStudentInfo(null);
+    setDetailedStats(null);
+  } else {
+    // Load saved student profile if reset has already happened
     const savedStudent = localStorage.getItem("student_profile");
     if (savedStudent) {
       const parsed = JSON.parse(savedStudent);
       setStudentInfo(parsed);
       fetchDetailedStats(parsed.roll_no);
     }
-  }, []);
+  }
+}, []);
 
   const fetchDetailedStats = async (rollNo) => {
     try {
