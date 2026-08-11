@@ -82,7 +82,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
       setAttendance(freshAttendance);
     } catch (err) {
       console.error("Error loading dashboard data:", err);
-    } fontFinally {
+    } finally {
       setLoading(false);
     }
   };
