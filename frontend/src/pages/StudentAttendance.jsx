@@ -25,7 +25,7 @@ export default function Student() {
         setDetailedStats(res.data);
       }
     } catch (err) {
-      console.error("Error fetching detailed stats:", err);
+      console.error("Error fetching stats:", err);
     }
   };
 
@@ -42,13 +42,13 @@ export default function Student() {
         fetchDetailedStats(studentData.roll_no);
       }
     } catch (err) {
-      alert("Roll Number not found in system.");
+      alert("Roll Number not registered in system.");
     }
   };
 
   const handleScanAndMarkAttendance = () => {
     if (!navigator.geolocation) {
-      setScanMessage({ type: 'error', text: 'Geolocation is not supported on this device.' });
+      setScanMessage({ type: 'error', text: 'Geolocation is not supported.' });
       return;
     }
 
@@ -56,7 +56,7 @@ export default function Student() {
     const sessionId = urlParams.get('sessionId');
 
     if (!sessionId) {
-      setScanMessage({ type: 'error', text: 'No active session found. Please scan the QR code displayed by your faculty.' });
+      setScanMessage({ type: 'error', text: 'No active class session found. Scan the faculty QR code.' });
       return;
     }
 
@@ -74,81 +74,94 @@ export default function Student() {
           });
 
           if (res.data.success) {
-            setScanMessage({ type: 'success', text: '✅ Location Verified! Attendance marked as PRESENT and locked.' });
+            setScanMessage({ type: 'success', text: '✅ Location Verified! Marked Present.' });
             fetchDetailedStats(studentInfo.roll_no);
           }
         } catch (err) {
-          const errorMsg = err.response?.data?.message || 'Verification failed. Make sure you are inside the classroom.';
+          const errorMsg = err.response?.data?.message || 'Location check failed.';
           setScanMessage({ type: 'error', text: `❌ ${errorMsg}` });
         } finally {
           setScanning(false);
         }
       },
-      (error) => {
+      () => {
         setScanning(false);
-        setScanMessage({ type: 'error', text: '📍 Please enable GPS/Location permissions on your browser to mark attendance.' });
+        setScanMessage({ type: 'error', text: '📍 Please allow GPS permissions to mark attendance.' });
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: '460px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
       
+      {/* BRANDING HEADER */}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: '800', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          ⚡ SmartAttend
+        </h2>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Student Attendance Portal</span>
+      </div>
+
       {!studentInfo ? (
-        <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-          <h2>🎓 Student Registration</h2>
+        <div className="card" style={{ padding: '28px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
+          <h3 style={{ marginBottom: '6px' }}>Student Registration</h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '20px' }}>Enter your Roll Number once to link this mobile device.</p>
+          
           <form onSubmit={handleRegister}>
             <input
               type="text"
-              placeholder="Enter Roll Number"
+              placeholder="e.g. 2585351122"
               value={rollNoInput}
               onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '10px' }}
+              style={{ width: '100%', padding: '14px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1.05rem' }}
               required
             />
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Connect Account</button>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '12px' }}>
+              Connect Account →
+            </button>
           </form>
         </div>
       ) : (
         <div>
           {/* PROFILE CARD */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase' }}>LINKED DEVICE</span>
-            <h3 style={{ margin: '2px 0 0 0' }}>{studentInfo.full_name}</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Roll: {studentInfo.roll_no} | {studentInfo.dept_code}</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>LINKED DEVICE</span>
+            <h3 style={{ margin: '4px 0 2px 0', fontSize: '1.2rem' }}>{studentInfo.full_name}</h3>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Roll: <strong style={{ color: 'var(--text-main)' }}>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
           </div>
 
           {/* OVERALL SUMMARY STATS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
-            <div className="card" style={{ padding: '12px', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>WORKING DAYS</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#6366f1' }}>{detailedStats ? detailedStats.totalWorkingDays : 0}</h3>
+            <div className="card" style={{ padding: '14px 8px', textAlign: 'center' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>WORKING DAYS</span>
+              <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalWorkingDays : 0}</h3>
             </div>
-            <div className="card" style={{ padding: '12px', textAlign: 'center', borderLeft: '3px solid #10b981' }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT DAYS</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#10b981' }}>{detailedStats ? detailedStats.totalPresent : 0}</h3>
+            <div className="card" style={{ padding: '14px 8px', textAlign: 'center', borderLeft: '3px solid #34d399' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT</span>
+              <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalPresent : 0}</h3>
             </div>
-            <div className="card" style={{ padding: '12px', textAlign: 'center', borderLeft: '3px solid #ef4444' }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT DAYS</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#ef4444' }}>{detailedStats ? detailedStats.totalAbsent : 0}</h3>
+            <div className="card" style={{ padding: '14px 8px', textAlign: 'center', borderLeft: '3px solid #f87171' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT</span>
+              <h3 style={{ margin: '4px 0 0 0', color: '#f87171', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalAbsent : 0}</h3>
             </div>
           </div>
 
-          {/* MONTHLY INTERACTIVE BAR GRAPH */}
+          {/* MONTHLY BAR GRAPH */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <h4 style={{ margin: '0 0 6px 0' }}>📊 Monthly Attendance Graph</h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '14px' }}>Click any month bar to view total present days.</p>
+            <h4 style={{ margin: '0 0 4px 0' }}>📊 Monthly Attendance Graph</h4>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Tap a month bar to view total present days.</p>
             
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '120px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
               {!detailedStats?.monthlyBarGraph || detailedStats.monthlyBarGraph.length === 0 ? (
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly data recorded yet.</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly attendance logged yet.</span>
               ) : (
                 detailedStats.monthlyBarGraph.map((item, idx) => (
                   <div key={idx} onClick={() => setSelectedMonthModal(item)} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>
                     <div style={{
                       height: `${Math.min(item.presentDaysCount * 12 + 20, 90)}px`,
-                      background: 'linear-gradient(180deg, #6366f1, #4338ca)',
+                      background: 'linear-gradient(180deg, #818cf8, #4f46e5)',
                       borderRadius: '8px 8px 0 0'
                     }} />
                     <span style={{ fontSize: '0.68rem', display: 'block', marginTop: '6px', color: 'var(--text-muted)' }}>{item.monthLabel}</span>
@@ -158,25 +171,26 @@ export default function Student() {
             </div>
           </div>
 
-          {/* CLASSROOM CHECK-IN BUTTON */}
+          {/* CLASSROOM CHECK-IN CARD */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
             <h4 style={{ margin: '0 0 6px 0' }}>Classroom Check-In</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px' }}>Verify location against teacher classroom coordinates.</p>
             <button
               onClick={handleScanAndMarkAttendance}
               disabled={scanning}
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', marginTop: '8px' }}
+              style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
             >
-              {scanning ? '📡 Verifying GPS Location...' : '📍 Verify Location & Mark Present'}
+              {scanning ? '📡 Verifying Location...' : '📍 Verify Location & Mark Present'}
             </button>
             {scanMessage && (
-              <p style={{ fontSize: '0.8rem', marginTop: '10px', color: scanMessage.type === 'success' ? '#10b981' : '#f87171' }}>
+              <p style={{ fontSize: '0.8rem', marginTop: '10px', fontWeight: '600', color: scanMessage.type === 'success' ? '#34d399' : '#f87171' }}>
                 {scanMessage.text}
               </p>
             )}
           </div>
 
-          {/* SUBJECT-WISE PERIOD COUNTER */}
+          {/* SUBJECT-WISE BREAKDOWN */}
           <div className="card" style={{ padding: '20px' }}>
             <h4 style={{ margin: '0 0 14px 0' }}>📚 Subject & Period Breakdown</h4>
             {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
@@ -187,28 +201,28 @@ export default function Student() {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Periods: {data.totalPeriods}</div>
                   </div>
                   <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>
-                    <span style={{ color: '#10b981', marginRight: '8px' }}>P: {data.present}</span>
-                    <span style={{ color: '#ef4444' }}>A: {data.absent}</span>
+                    <span style={{ color: '#34d399', marginRight: '8px' }}>P: {data.present}</span>
+                    <span style={{ color: '#f87171' }}>A: {data.absent}</span>
                   </div>
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No subject records found.</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No class records found.</p>
             )}
           </div>
         </div>
       )}
 
-      {/* MONTHLY BAR GRAPH DETAIL POPUP */}
+      {/* MONTH BAR DETAIL MODAL */}
       {selectedMonthModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center' }}>
             <h3>📅 {selectedMonthModal.monthLabel} Attendance</h3>
-            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#6366f1', margin: '15px 0' }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#818cf8', margin: '15px 0' }}>
               {selectedMonthModal.presentDaysCount} Days
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total days marked Present in {selectedMonthModal.monthLabel}.</p>
-            <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '10px' }}>Close</button>
+            <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '14px', width: '100%' }}>Close</button>
           </div>
         </div>
       )}
