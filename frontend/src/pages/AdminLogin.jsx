@@ -12,8 +12,9 @@ export default function AdminLogin() {
   useEffect(() => {
     document.body.classList.remove("dark-mode");
     
-    // Redirect automatically if admin is already logged in
-    if (localStorage.getItem("isAdminLoggedIn") === "true") {
+    // Redirect automatically if already logged in
+    const isLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
+    if (isLoggedIn) {
       navigate('/admin');
     }
   }, [navigate]);
@@ -33,15 +34,17 @@ export default function AdminLogin() {
       });
 
       if (res.data && res.data.success) {
-        // Save persistent login session to localStorage
+        // Save auth flag and active admin safely
         localStorage.setItem("isAdminLoggedIn", "true");
-        localStorage.setItem("activeAdmin", JSON.stringify(res.data.admin));
+        localStorage.setItem("activeAdmin", JSON.stringify(res.data.admin || { admin_id: 'admin', full_name: 'System Administrator' }));
+        
+        // Navigate to admin dashboard
         navigate('/admin');
       } else {
         alert("❌ " + (res.data?.message || "Invalid Admin Credentials"));
       }
     } catch (err) {
-      alert("❌ Invalid Admin Credentials or Server Connection Error");
+      alert("❌ " + (err.response?.data?.message || "Invalid Admin Credentials or Connection Error"));
     } finally {
       setLoading(false);
     }

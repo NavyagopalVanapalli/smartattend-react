@@ -9,10 +9,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const [students, setStudents] = useState([]);
   const [toast, setToast] = useState(null);
 
-  // Prevents selecting future dates
+  // Max date restrictor for inputs
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Edit Modal States
+  // Modal States
   const [editTeacher, setEditTeacher] = useState(null);
   const [editStudent, setEditStudent] = useState(null);
 
@@ -24,10 +24,17 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     roll_no: '', full_name: '', dept_code: '', parent_phone: '' 
   });
 
-  const activeAdmin = JSON.parse(sessionStorage.getItem("activeAdmin") || "{}");
+  const activeAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("activeAdmin") || sessionStorage.getItem("activeAdmin") || "{}");
+    } catch {
+      return {};
+    }
+  })();
 
   useEffect(() => {
-    if (sessionStorage.getItem("isAdminLoggedIn") !== "true") {
+    const isAuth = localStorage.getItem("isAdminLoggedIn") === "true" || sessionStorage.getItem("isAdminLoggedIn") === "true";
+    if (!isAuth) {
       navigate('/admin-login');
       return;
     }
@@ -45,11 +52,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       const resTeachers = await axios.get('/api/admin/teachers-list');
       const resStudents = await axios.get('/api/admin/students-list');
 
-      setStats(resStats.data);
-      setTeachers(resTeachers.data || []);
-      setStudents(resStudents.data || []);
+      setStats(resStats.data || { totalStudents: 0, totalTeachers: 0, todayPresent: 0, todayAbsent: 0 });
+      setTeachers(Array.isArray(resTeachers.data) ? resTeachers.data : []);
+      setStudents(Array.isArray(resStudents.data) ? resStudents.data : []);
     } catch (err) {
       console.error("Error loading admin data:", err);
+      setTeachers([]);
+      setStudents([]);
     }
   };
 
@@ -78,7 +87,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   };
 
   const handleDeleteTeacher = async (teacher) => {
-    if (!confirm(`Delete Faculty ID: ${teacher.teacher_id}?`)) return;
+    if (!teacher || !confirm(`Delete Faculty ID: ${teacher.teacher_id}?`)) return;
     try {
       await axios.delete(`/api/admin/teachers/delete?teacher_id=${teacher.teacher_id}`);
       setTeachers(prev => prev.filter(t => t.teacher_id !== teacher.teacher_id));
@@ -89,7 +98,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   };
 
   const handleDeleteStudent = async (student) => {
-    if (!confirm(`Delete student ${student.roll_no}?`)) return;
+    if (!student || !confirm(`Delete student ${student.roll_no}?`)) return;
     try {
       await axios.delete(`/api/students/delete?roll_no=${student.roll_no}&dept_code=${student.dept_code}`);
       setStudents(prev => prev.filter(s => s.roll_no !== student.roll_no));
@@ -123,6 +132,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("isAdminLoggedIn");
+    localStorage.removeItem("activeAdmin");
+    sessionStorage.clear();
+    navigate('/admin-login');
+  };
+
   return (
     <div style={{ minHeight: '100vh', padding: '25px 5%' }}>
       
@@ -136,7 +152,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           <button onClick={() => setDarkMode(!darkMode)} className="btn btn-secondary">
             {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
           </button>
-          <button onClick={() => { sessionStorage.clear(); navigate('/admin-login'); }} className="btn btn-danger">
+          <button onClick={handleLogout} className="btn btn-danger">
             🔒 Logout
           </button>
         </div>
@@ -144,23 +160,23 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
 
       <h1 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '20px' }}>⚡ System Admin Panel</h1>
 
-      {/* STATS SUMMARY */}
+      {/* STATS SUMMARY CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>TOTAL STUDENTS</span>
-          <h2 style={{ fontSize: '2.2rem', color: '#38bdf8', marginTop: '4px' }}>{stats.totalStudents}</h2>
+          <h2 style={{ fontSize: '2.2rem', color: '#38bdf8', marginTop: '4px' }}>{stats.totalStudents || 0}</h2>
         </div>
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>TOTAL FACULTY</span>
-          <h2 style={{ fontSize: '2.2rem', color: '#a855f7', marginTop: '4px' }}>{stats.totalTeachers}</h2>
+          <h2 style={{ fontSize: '2.2rem', color: '#a855f7', marginTop: '4px' }}>{stats.totalTeachers || 0}</h2>
         </div>
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>TODAY PRESENT</span>
-          <h2 style={{ fontSize: '2.2rem', color: '#34d399', marginTop: '4px' }}>{stats.todayPresent}</h2>
+          <h2 style={{ fontSize: '2.2rem', color: '#34d399', marginTop: '4px' }}>{stats.todayPresent || 0}</h2>
         </div>
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>TODAY ABSENT</span>
-          <h2 style={{ fontSize: '2.2rem', color: '#f87171', marginTop: '4px' }}>{stats.todayAbsent}</h2>
+          <h2 style={{ fontSize: '2.2rem', color: '#f87171', marginTop: '4px' }}>{stats.todayAbsent || 0}</h2>
         </div>
       </div>
 
@@ -196,7 +212,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </form>
       </div>
 
-      {/* ADD STUDENT FORM (RESTORED) */}
+      {/* ADD STUDENT FORM */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
         <h3 style={{ marginBottom: '16px' }}>🎓 Add New Student</h3>
         <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr)) 130px', gap: '12px', alignItems: 'end' }}>
@@ -235,18 +251,22 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               </tr>
             </thead>
             <tbody>
-              {teachers.map(t => (
-                <tr key={t.teacher_id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <td style={{ padding: '12px' }}><b>{t.teacher_id}</b></td>
-                  <td style={{ padding: '12px' }}>{t.full_name}</td>
-                  <td style={{ padding: '12px' }}>{t.email}</td>
-                  <td style={{ padding: '12px' }}>{t.dept_code}</td>
-                  <td style={{ padding: '12px' }}>
-                    <button onClick={() => setEditTeacher(t)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '4px 10px' }}>✏️ Edit</button>
-                    <button onClick={() => handleDeleteTeacher(t)} className="btn btn-danger" style={{ padding: '4px 10px' }}>🗑️ Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {!teachers || teachers.length === 0 ? (
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No faculty registered yet.</td></tr>
+              ) : (
+                teachers.map(t => (
+                  <tr key={t.teacher_id || Math.random()} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '12px' }}><b>{t.teacher_id || '-'}</b></td>
+                    <td style={{ padding: '12px' }}>{t.full_name || '-'}</td>
+                    <td style={{ padding: '12px' }}>{t.email || '-'}</td>
+                    <td style={{ padding: '12px' }}>{t.dept_code || '-'}</td>
+                    <td style={{ padding: '12px' }}>
+                      <button onClick={() => setEditTeacher(t)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '4px 10px' }}>✏️ Edit</button>
+                      <button onClick={() => handleDeleteTeacher(t)} className="btn btn-danger" style={{ padding: '4px 10px' }}>🗑️ Delete</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -266,17 +286,21 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               </tr>
             </thead>
             <tbody>
-              {students.map(s => (
-                <tr key={s.roll_no} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <td style={{ padding: '12px' }}><b>{s.roll_no}</b></td>
-                  <td style={{ padding: '12px' }}>{s.full_name}</td>
-                  <td style={{ padding: '12px' }}>{s.dept_code}</td>
-                  <td style={{ padding: '12px' }}>
-                    <button onClick={() => setEditStudent(s)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '4px 10px' }}>✏️ Edit</button>
-                    <button onClick={() => handleDeleteStudent(s)} className="btn btn-danger" style={{ padding: '4px 10px' }}>🗑️ Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {!students || students.length === 0 ? (
+                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No students registered yet.</td></tr>
+              ) : (
+                students.map(s => (
+                  <tr key={s.roll_no || Math.random()} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '12px' }}><b>{s.roll_no || '-'}</b></td>
+                    <td style={{ padding: '12px' }}>{s.full_name || '-'}</td>
+                    <td style={{ padding: '12px' }}>{s.dept_code || '-'}</td>
+                    <td style={{ padding: '12px' }}>
+                      <button onClick={() => setEditStudent(s)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '4px 10px' }}>✏️ Edit</button>
+                      <button onClick={() => handleDeleteStudent(s)} className="btn btn-danger" style={{ padding: '4px 10px' }}>🗑️ Delete</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -289,13 +313,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <h3>✏️ Edit Faculty</h3>
             <form onSubmit={handleUpdateTeacher}>
               <label style={{ display: 'block', margin: '10px 0 4px 0', fontSize: '0.8rem' }}>Full Name</label>
-              <input type="text" value={editTeacher.full_name} onChange={e => setEditTeacher({...editTeacher, full_name: e.target.value})} required style={{ width: '100%' }} />
+              <input type="text" value={editTeacher.full_name || ''} onChange={e => setEditTeacher({...editTeacher, full_name: e.target.value})} required style={{ width: '100%' }} />
               
               <label style={{ display: 'block', margin: '10px 0 4px 0', fontSize: '0.8rem' }}>Email</label>
-              <input type="email" value={editTeacher.email} onChange={e => setEditTeacher({...editTeacher, email: e.target.value})} required style={{ width: '100%' }} />
+              <input type="email" value={editTeacher.email || ''} onChange={e => setEditTeacher({...editTeacher, email: e.target.value})} required style={{ width: '100%' }} />
               
               <label style={{ display: 'block', margin: '10px 0 4px 0', fontSize: '0.8rem' }}>Branch / Dept</label>
-              <input type="text" value={editTeacher.dept_code} onChange={e => setEditTeacher({...editTeacher, dept_code: e.target.value})} required style={{ width: '100%', marginBottom: '16px' }} />
+              <input type="text" value={editTeacher.dept_code || ''} onChange={e => setEditTeacher({...editTeacher, dept_code: e.target.value})} required style={{ width: '100%', marginBottom: '16px' }} />
               
               <button type="submit" className="btn btn-primary">Save Changes</button>
               <button type="button" onClick={() => setEditTeacher(null)} className="btn btn-secondary" style={{ marginLeft: '8px' }}>Cancel</button>
@@ -311,10 +335,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <h3>✏️ Edit Student</h3>
             <form onSubmit={handleUpdateStudent}>
               <label style={{ display: 'block', margin: '10px 0 4px 0', fontSize: '0.8rem' }}>Full Name</label>
-              <input type="text" value={editStudent.full_name} onChange={e => setEditStudent({...editStudent, full_name: e.target.value})} required style={{ width: '100%' }} />
+              <input type="text" value={editStudent.full_name || ''} onChange={e => setEditStudent({...editStudent, full_name: e.target.value})} required style={{ width: '100%' }} />
               
               <label style={{ display: 'block', margin: '10px 0 4px 0', fontSize: '0.8rem' }}>Department</label>
-              <input type="text" value={editStudent.dept_code} onChange={e => setEditStudent({...editStudent, dept_code: e.target.value})} required style={{ width: '100%', marginBottom: '16px' }} />
+              <input type="text" value={editStudent.dept_code || ''} onChange={e => setEditStudent({...editStudent, dept_code: e.target.value})} required style={{ width: '100%', marginBottom: '16px' }} />
               
               <button type="submit" className="btn btn-primary">Save Changes</button>
               <button type="button" onClick={() => setEditStudent(null)} className="btn btn-secondary" style={{ marginLeft: '8px' }}>Cancel</button>
