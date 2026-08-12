@@ -15,11 +15,12 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
 
   // Forms State
   const [teacherForm, setTeacherForm] = useState({ 
-    teacher_id: '', full_name: '', email: '', phone: '', password_hash: '', dept_code: '', branch: '' 
+    teacher_id: '', full_name: '', email: '', phone: '', password_hash: '', branch: '' 
   });
   
+  // Student Form with Year, Branch, Section
   const [studentForm, setStudentForm] = useState({ 
-    roll_no: '', full_name: '', dept_code: '', parent_phone: '' 
+    roll_no: '', full_name: '', dept_code: 'MCA', year_level: '1st Year', section: 'Sec A', parent_phone: '' 
   });
 
   // Safe Session Retrieval
@@ -64,9 +65,12 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const handleAddTeacher = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/admin/teachers', teacherForm);
+      await axios.post('/api/admin/teachers', {
+        ...teacherForm,
+        dept_code: teacherForm.branch
+      });
       showToast(`✨ Faculty ${teacherForm.full_name} registered successfully!`);
-      setTeacherForm({ teacher_id: '', full_name: '', email: '', phone: '', password_hash: '', dept_code: '', branch: '' });
+      setTeacherForm({ teacher_id: '', full_name: '', email: '', phone: '', password_hash: '', branch: '' });
       fetchAdminData();
     } catch (err) {
       alert("Error registering faculty member.");
@@ -77,8 +81,8 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     e.preventDefault();
     try {
       await axios.post('/api/admin/students', studentForm);
-      showToast(`✨ Student ${studentForm.full_name} added successfully!`);
-      setStudentForm({ roll_no: '', full_name: '', dept_code: '', parent_phone: '' });
+      showToast(`✨ Student ${studentForm.full_name} registered successfully!`);
+      setStudentForm({ roll_no: '', full_name: '', dept_code: 'MCA', year_level: '1st Year', section: 'Sec A', parent_phone: '' });
       fetchAdminData();
     } catch (err) {
       alert("Error registering student.");
@@ -166,9 +170,8 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* VIBRANT ANALYTICS CARDS GRID */}
+      {/* ANALYTICS CARDS GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-        
         <div className="card" style={{ padding: '20px', borderLeft: '4px solid #38bdf8' }}>
           <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL STUDENTS</span>
           <div style={{ fontSize: '2.4rem', fontWeight: '800', margin: '4px 0 0 0', color: 'var(--text-main)' }}>{stats.totalStudents || 0}</div>
@@ -188,22 +191,19 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TODAY ABSENT</span>
           <div style={{ fontSize: '2.4rem', fontWeight: '800', margin: '4px 0 0 0', color: '#f87171' }}>{stats.todayAbsent || 0}</div>
         </div>
-
       </div>
 
       {/* FORM SECTION 1: ADD FACULTY */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.15rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          👨‍🏫 Register Faculty Member
-        </h3>
-        <form onSubmit={handleAddTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr)) 140px', gap: '14px', alignItems: 'end' }}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.15rem', fontWeight: '800' }}>👨‍🏫 Register Faculty Member</h3>
+        <form onSubmit={handleAddTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr)) 140px', gap: '14px', alignItems: 'end' }}>
           <div>
             <label>Teacher ID</label>
             <input placeholder="e.g. T101" value={teacherForm.teacher_id} onChange={e => setTeacherForm({...teacherForm, teacher_id: e.target.value})} required />
           </div>
           <div>
             <label>Full Name</label>
-            <input placeholder="e.g. Dr. Dupesh" value={teacherForm.full_name} onChange={e => setTeacherForm({...teacherForm, full_name: e.target.value})} required />
+            <input placeholder="e.g. Dr. Smith" value={teacherForm.full_name} onChange={e => setTeacherForm({...teacherForm, full_name: e.target.value})} required />
           </div>
           <div>
             <label>Email Address</label>
@@ -214,8 +214,8 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <input placeholder="9876543210" maxLength="10" value={teacherForm.phone} onChange={e => setTeacherForm({...teacherForm, phone: e.target.value})} required />
           </div>
           <div>
-            <label>Department / Branch</label>
-            <input placeholder="MCA / CSE" value={teacherForm.branch} onChange={e => setTeacherForm({...teacherForm, branch: e.target.value, dept_code: e.target.value})} required />
+            <label>Branch / Department</label>
+            <input placeholder="MCA / CSE" value={teacherForm.branch} onChange={e => setTeacherForm({...teacherForm, branch: e.target.value})} required />
           </div>
           <div>
             <label>Password</label>
@@ -227,11 +227,9 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </form>
       </div>
 
-      {/* FORM SECTION 2: ADD STUDENT */}
+      {/* FORM SECTION 2: ADD STUDENT (WITH BRANCH, YEAR, SECTION) */}
       <div className="card" style={{ padding: '24px', marginBottom: '28px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.15rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🎓 Register Student
-        </h3>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.15rem', fontWeight: '800' }}>🎓 Register Student</h3>
         <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr)) 140px', gap: '14px', alignItems: 'end' }}>
           <div>
             <label>Roll Number</label>
@@ -242,8 +240,25 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <input placeholder="e.g. Yamini" value={studentForm.full_name} onChange={e => setStudentForm({...studentForm, full_name: e.target.value})} required />
           </div>
           <div>
-            <label>Department</label>
-            <input placeholder="MCA / CSE" value={studentForm.dept_code} onChange={e => setStudentForm({...studentForm, dept_code: e.target.value})} required />
+            <label>Branch / Dept</label>
+            <input placeholder="MCA / CSE" value={studentForm.dept_code} onChange={e => setStudentForm({...studentForm, dept_code: e.target.value.toUpperCase()})} required />
+          </div>
+          <div>
+            <label>Year of Study</label>
+            <select value={studentForm.year_level} onChange={e => setStudentForm({...studentForm, year_level: e.target.value})}>
+              <option value="1st Year">1st Year</option>
+              <option value="2nd Year">2nd Year</option>
+              <option value="3rd Year">3rd Year</option>
+              <option value="4th Year">4th Year</option>
+            </select>
+          </div>
+          <div>
+            <label>Section</label>
+            <select value={studentForm.section} onChange={e => setStudentForm({...studentForm, section: e.target.value})}>
+              <option value="Sec A">Sec A</option>
+              <option value="Sec B">Sec B</option>
+              <option value="Sec C">Sec C</option>
+            </select>
           </div>
           <div>
             <label>Parent Phone</label>
@@ -262,22 +277,24 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                <th style={{ padding: '14px 12px' }}>TEACHER ID</th>
+                <th style={{ padding: '14px 12px' }}>ID</th>
                 <th style={{ padding: '14px 12px' }}>FULL NAME</th>
                 <th style={{ padding: '14px 12px' }}>EMAIL</th>
+                <th style={{ padding: '14px 12px' }}>PHONE</th>
                 <th style={{ padding: '14px 12px' }}>BRANCH</th>
                 <th style={{ padding: '14px 12px' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {!teachers || teachers.length === 0 ? (
-                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No faculty registered yet.</td></tr>
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No faculty registered yet.</td></tr>
               ) : (
                 teachers.map(t => (
                   <tr key={t.teacher_id || Math.random()} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: '14px 12px', fontWeight: '700' }}>{t.teacher_id || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>{t.full_name || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>{t.email || '-'}</td>
+                    <td style={{ padding: '14px 12px' }}>{t.phone || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>{t.dept_code || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>
                       <button onClick={() => setEditTeacher(t)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '6px 12px', fontSize: '0.8rem' }}>✏️ Edit</button>
@@ -300,19 +317,23 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                 <th style={{ padding: '14px 12px' }}>ROLL NO</th>
                 <th style={{ padding: '14px 12px' }}>FULL NAME</th>
-                <th style={{ padding: '14px 12px' }}>DEPARTMENT</th>
+                <th style={{ padding: '14px 12px' }}>BRANCH</th>
+                <th style={{ padding: '14px 12px' }}>YEAR</th>
+                <th style={{ padding: '14px 12px' }}>SECTION</th>
                 <th style={{ padding: '14px 12px' }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {!students || students.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No students registered yet.</td></tr>
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No students registered yet.</td></tr>
               ) : (
                 students.map(s => (
                   <tr key={s.roll_no || Math.random()} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: '14px 12px', fontWeight: '700' }}>{s.roll_no || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>{s.full_name || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>{s.dept_code || '-'}</td>
+                    <td style={{ padding: '14px 12px' }}>{s.year_level || '-'}</td>
+                    <td style={{ padding: '14px 12px' }}>{s.section || '-'}</td>
                     <td style={{ padding: '14px 12px' }}>
                       <button onClick={() => setEditStudent(s)} className="btn btn-secondary" style={{ marginRight: '8px', padding: '6px 12px', fontSize: '0.8rem' }}>✏️ Edit</button>
                       <button onClick={() => handleDeleteStudent(s)} className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>🗑️ Delete</button>
@@ -325,7 +346,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* EDIT TEACHER MODAL */}
+      {/* EDIT TEACHER MODAL (FULL NAME, EMAIL, PHONE, BRANCH) */}
       {editTeacher && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -338,6 +359,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               <div style={{ marginBottom: '12px' }}>
                 <label>Email Address</label>
                 <input type="email" value={editTeacher.email || ''} onChange={e => setEditTeacher({...editTeacher, email: e.target.value})} required />
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label>Phone Number</label>
+                <input type="text" maxLength="10" value={editTeacher.phone || ''} onChange={e => setEditTeacher({...editTeacher, phone: e.target.value})} required />
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label>Branch / Department</label>
@@ -363,9 +388,26 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 <label>Full Name</label>
                 <input type="text" value={editStudent.full_name || ''} onChange={e => setEditStudent({...editStudent, full_name: e.target.value})} required />
               </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label>Department</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label>Branch / Department</label>
                 <input type="text" value={editStudent.dept_code || ''} onChange={e => setEditStudent({...editStudent, dept_code: e.target.value})} required />
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label>Year Level</label>
+                <select value={editStudent.year_level || '1st Year'} onChange={e => setEditStudent({...editStudent, year_level: e.target.value})}>
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <label>Section</label>
+                <select value={editStudent.section || 'Sec A'} onChange={e => setEditStudent({...editStudent, section: e.target.value})}>
+                  <option value="Sec A">Sec A</option>
+                  <option value="Sec B">Sec B</option>
+                  <option value="Sec C">Sec C</option>
+                </select>
               </div>
               
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

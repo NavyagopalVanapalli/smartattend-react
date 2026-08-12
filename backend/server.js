@@ -483,6 +483,7 @@ app.post('/api/admin/teachers', async (req, res) => {
   }
 });
 
+// UPDATE FACULTY (Includes phone number)
 app.put('/api/admin/teachers/update', async (req, res) => {
   const { teacher_id, full_name, email, phone, dept_code } = req.body;
   try {
@@ -490,7 +491,7 @@ app.put('/api/admin/teachers/update', async (req, res) => {
       { teacher_id: teacher_id.trim() },
       { full_name, email, phone, dept_code }
     );
-    res.json({ success: true, message: "Faculty updated successfully!" });
+    res.json({ success: true, message: "Faculty details updated successfully!" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
