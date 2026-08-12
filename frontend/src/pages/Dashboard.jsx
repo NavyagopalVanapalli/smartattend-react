@@ -168,27 +168,33 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   };
 
   const handleAddStudent = async (e) => {
-    e.preventDefault();
-    if (!studentForm.roll_no || !studentForm.full_name) {
-      alert("Please enter Roll Number and Full Name.");
-      return;
-    }
+  e.preventDefault();
+  if (!studentForm.roll_no || !studentForm.full_name) {
+    alert("Please enter Roll Number and Full Name.");
+    return;
+  }
 
-    try {
-      await axios.post('/api/admin/students', {
-        ...studentForm,
-        dept_code: filters.dept,
-        year_level: filters.year,
-        section: filters.sec
-      });
+  try {
+    const res = await axios.post('/api/admin/students', {
+      roll_no: studentForm.roll_no.trim(),
+      full_name: studentForm.full_name.trim(),
+      parent_phone: studentForm.parent_phone ? studentForm.parent_phone.trim() : '0000000000',
+      dept_code: filters.dept,
+      year_level: filters.year,
+      section: filters.sec
+    });
+
+    if (res.data.success) {
       alert("✅ Student registered successfully!");
       setIsAddStudentOpen(false);
       setStudentForm({ roll_no: '', full_name: '', parent_phone: '' });
       fetchStudentsAndAttendance();
-    } catch (err) {
-      alert("Error adding student.");
     }
-  };
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || err.response?.data?.error || "Error adding student.";
+    alert("❌ " + errorMsg);
+  }
+};
 
   const handleToggleAttendance = (rollNo) => {
     setAttendance(prev => {
