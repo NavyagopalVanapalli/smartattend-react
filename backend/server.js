@@ -510,17 +510,34 @@ app.post('/api/admin/students', async (req, res) => {
   const { roll_no, full_name, parent_phone, dept_code, year_level, section } = req.body;
 
   try {
+    if (!roll_no || !full_name) {
+      return res.status(400).json({ success: false, message: "Roll Number and Full Name are required!" });
+    }
+
+    const cleanRollNo = roll_no.trim().toUpperCase();
+
+    // Check if student already exists
+    const existingStudent = await Student.findOne({ roll_no: cleanRollNo });
+    if (existingStudent) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Student with Roll Number ${cleanRollNo} already exists!` 
+      });
+    }
+
     await Student.create({
-      roll_no: roll_no.trim(),
+      roll_no: cleanRollNo,
       full_name: full_name.trim(),
       parent_phone: parent_phone ? parent_phone.trim() : '0000000000',
-      dept_code: dept_code ? dept_code.trim() : 'CSE',
+      dept_code: dept_code ? dept_code.trim() : 'MCA',
       year_level: year_level ? year_level.trim() : '1st Year',
       section: section ? section.trim() : 'Sec A'
     });
+
     res.json({ success: true, message: "Student added successfully!" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error adding student:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

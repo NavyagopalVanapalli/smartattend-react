@@ -559,7 +559,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 <label>Roll Number</label>
                 <input
                   type="text"
-                  placeholder="e.g. 21CS01"
+                  placeholder="e.g. 2585351001"
                   value={studentForm.roll_no}
                   onChange={e => setStudentForm({...studentForm, roll_no: e.target.value})}
                   required
@@ -570,7 +570,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 <label>Full Name</label>
                 <input
                   type="text"
-                  placeholder="Jane Smith"
+                  placeholder="Name of the student"
                   value={studentForm.full_name}
                   onChange={e => setStudentForm({...studentForm, full_name: e.target.value})}
                   required

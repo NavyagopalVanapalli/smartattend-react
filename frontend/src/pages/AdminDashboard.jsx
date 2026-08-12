@@ -186,15 +186,15 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         <form onSubmit={handleAddTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr)) 130px', gap: '12px', alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Teacher ID</label>
-            <input placeholder="T101" value={teacherForm.teacher_id} onChange={e => setTeacherForm({...teacherForm, teacher_id: e.target.value})} required />
+            <input placeholder="FAC101" value={teacherForm.teacher_id} onChange={e => setTeacherForm({...teacherForm, teacher_id: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Full Name</label>
-            <input placeholder="Dr. Smith" value={teacherForm.full_name} onChange={e => setTeacherForm({...teacherForm, full_name: e.target.value})} required />
+            <input placeholder="Name of the Faculty" value={teacherForm.full_name} onChange={e => setTeacherForm({...teacherForm, full_name: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Email</label>
-            <input type="email" placeholder="smith@college.edu" value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})} required />
+            <input type="email" placeholder="Faculty Email" value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Phone</label>
@@ -202,7 +202,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Branch</label>
-            <input placeholder="CSE / MCA" value={teacherForm.branch} onChange={e => setTeacherForm({...teacherForm, branch: e.target.value, dept_code: e.target.value})} required />
+            <input placeholder="MCA / MBA" value={teacherForm.branch} onChange={e => setTeacherForm({...teacherForm, branch: e.target.value, dept_code: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Password</label>
@@ -218,11 +218,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr)) 130px', gap: '12px', alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Roll Number</label>
-            <input placeholder="2585351122" value={studentForm.roll_no} onChange={e => setStudentForm({...studentForm, roll_no: e.target.value})} required />
+            <input placeholder="2585351001" value={studentForm.roll_no} onChange={e => setStudentForm({...studentForm, roll_no: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Full Name</label>
-            <input placeholder="John Doe" value={studentForm.full_name} onChange={e => setStudentForm({...studentForm, full_name: e.target.value})} required />
+            <input placeholder="Name of the student" value={studentForm.full_name} onChange={e => setStudentForm({...studentForm, full_name: e.target.value})} required />
           </div>
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Department</label>
