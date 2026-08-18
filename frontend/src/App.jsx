@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
-import Student from './pages/Student';
+import StudentAttendance from './pages/StudentAttendance';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("appTheme") === "dark");
@@ -25,9 +25,10 @@ export default function App() {
         <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/student" element={<Student darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/student" element={<StudentAttendance />} />
+        
       </Routes>
     </BrowserRouter>
   );

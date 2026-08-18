@@ -1,44 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
-// Gazetted / Festival Holidays Calendar (YYYY-MM-DD)
-const HOLIDAYS = {
-  '2026-01-01': "New Year's Day",
-  '2026-01-14': 'Makara Sankranti / Pongal',
-  '2026-01-15': 'Kanuma',
-  '2026-01-26': 'Republic Day',
-  '2026-02-15': 'Maha Shivratri',
-  '2026-03-04': 'Holi',
-  '2026-03-19': 'Ugadi / Gudi Padwa',
-  '2026-03-21': 'Eid-ul-Fitr (Ramzan)',
-  '2026-03-26': 'Sri Rama Navami',
-  '2026-04-03': 'Good Friday',
-  '2026-04-14': 'Dr. B.R. Ambedkar Jayanti',
-  '2026-05-01': 'May Day / Buddha Purnima',
-  '2026-05-27': 'Bakrid (Eid-ul-Adha)',
-  '2026-06-26': 'Muharram',
-  '2026-08-15': 'Independence Day',
-  '2026-08-26': 'Milad-un-Nabi',
-  '2026-09-04': 'Sri Krishna Janmashtami',
-  '2026-09-14': 'Vinayaka Chavithi',
-  '2026-10-02': 'Gandhi Jayanti',
-  '2026-10-20': 'Dussehra (Vijayadasami)',
-  '2026-11-08': 'Diwali (Deepavali)',
-  '2026-12-25': 'Christmas Day'
-};
-
-export default function Student({ darkMode, setDarkMode }) {
+export default function Student() {
   const [studentInfo, setStudentInfo] = useState(null);
   const [rollNoInput, setRollNoInput] = useState('');
   const [detailedStats, setDetailedStats] = useState(null);
-
-  // Calendar State
-  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-  const [selectedDayModal, setSelectedDayModal] = useState(null);
+  const [selectedMonthModal, setSelectedMonthModal] = useState(null);
 
   // History Filter States
   const [historySearchTerm, setHistorySearchTerm] = useState('');
-  const [dateRangeFilter, setDateRangeFilter] = useState('ALL');
+  const [dateRangeFilter, setDateRangeFilter] = useState('ALL'); // ALL, WEEK, MONTH, CUSTOM
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -53,6 +25,7 @@ export default function Student({ darkMode, setDarkMode }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
+    // 1. One-time login reset check
     const RESET_KEY = "reset_student_logins_v2";
     if (!localStorage.getItem(RESET_KEY)) {
       localStorage.clear();
@@ -69,32 +42,30 @@ export default function Student({ darkMode, setDarkMode }) {
       }
     }
 
+    // 2. PWA Install Listener
     const handleBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
-  // Safe Camera Scanner Initialization via Window Global
+  // Initialize and clean up camera scanner
   useEffect(() => {
     if (isCameraOpen && !scannerRef.current) {
       setCameraPermissionError(null);
 
+      // Verify Browser Support & Permissions
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
         return;
       }
 
-      if (!window.Html5QrcodeScanner) {
-        setCameraPermissionError("Scanner library is loading, please try again in a moment.");
-        return;
-      }
-
       navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(() => {
-          const scanner = new window.Html5QrcodeScanner(
+          const scanner = new Html5QrcodeScanner(
             "qr-reader-container",
             { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
             false
@@ -217,49 +188,11 @@ export default function Student({ darkMode, setDarkMode }) {
     );
   };
 
-  // Calendar Calculation Helpers
-  const year = currentCalendarDate.getFullYear();
-  const month = currentCalendarDate.getMonth();
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  
-  const firstDayIndex = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // Create attendance lookup by date
-  const recordsByDate = {};
-  if (detailedStats?.recentHistory) {
-    detailedStats.recentHistory.forEach(r => {
-      if (!recordsByDate[r.date]) recordsByDate[r.date] = [];
-      recordsByDate[r.date].push(r);
-    });
-  }
-
-  // Monthly Counts for the active calendar view
-  let monthPresentCount = 0;
-  let monthAbsentCount = 0;
-  let monthHolidayCount = 0;
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const dayOfWeek = new Date(year, month, d).getDay();
-    const isHoliday = dayOfWeek === 0 || HOLIDAYS[dStr];
-    
-    if (isHoliday) {
-      monthHolidayCount++;
-    } else if (recordsByDate[dStr]) {
-      const hasPresent = recordsByDate[dStr].some(r => r.status === 'Present');
-      if (hasPresent) monthPresentCount++;
-      else monthAbsentCount++;
-    }
-  }
-
-  const handlePrevMonth = () => setCurrentCalendarDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentCalendarDate(new Date(year, month + 1, 1));
-
   const percentage = detailedStats ? detailedStats.attendancePercentage : 0;
   const isSafe = percentage >= 75;
   const isWarning = percentage >= 65 && percentage < 75;
 
+  // Filter Attendance History by Date Range & Search Text
   const filteredHistory = (detailedStats?.recentHistory || []).filter(item => {
     const matchesSearch = item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
       item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
@@ -284,34 +217,23 @@ export default function Student({ darkMode, setDarkMode }) {
       return true;
     }
 
-    return true;
+    return true; // 'ALL'
   });
 
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
+    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
       
-      {/* HEADER & CONTROLS */}
+      {/* HEADER & PWA INSTALL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>⚡ SmartAttend</h2>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Student Attendance Hub</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Student Self-Service Portal</span>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {setDarkMode && (
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.8rem', padding: '6px 12px', borderRadius: '10px' }}
-            >
-              {darkMode ? '☀️ Light' : '🌙 Dark'}
-            </button>
-          )}
-          {deferredPrompt && (
-            <button onClick={handleInstallPWA} className="btn btn-primary" style={{ fontSize: '0.78rem', padding: '6px 12px', borderRadius: '10px' }}>
-              📲 Install
-            </button>
-          )}
-        </div>
+        {deferredPrompt && (
+          <button onClick={handleInstallPWA} className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '6px 12px' }}>
+            📲 Install App
+          </button>
+        )}
       </div>
 
       {!studentInfo ? (
@@ -319,7 +241,7 @@ export default function Student({ darkMode, setDarkMode }) {
           <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
           <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Enter your Roll Number once to bind your profile.
+            Enter your Roll Number once to link this mobile device permanently.
           </p>
           <form onSubmit={handleRegister}>
             <input
@@ -337,10 +259,10 @@ export default function Student({ darkMode, setDarkMode }) {
         </div>
       ) : (
         <div>
-          {/* PROFILE & PERCENTAGE CARD */}
+          {/* PROFILE & 75% BADGE CARD */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>STUDENT PROFILE</span>
+              <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>LINKED PROFILE</span>
               <h3 style={{ margin: '2px 0', fontSize: '1.15rem' }}>{studentInfo.full_name}</h3>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
             </div>
@@ -364,7 +286,7 @@ export default function Student({ darkMode, setDarkMode }) {
             </div>
           </div>
 
-          {/* OVERALL METRIC COUNTERS */}
+          {/* OVERALL METRICS CARDS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
             <div className="card" style={{ padding: '14px 8px', textAlign: 'center' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL DAYS</span>
@@ -398,104 +320,6 @@ export default function Student({ darkMode, setDarkMode }) {
             )}
           </div>
 
-          {/* ATTENDANCE CALENDAR VIEW */}
-          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <button onClick={handlePrevMonth} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.85rem' }}>◀</button>
-              <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800' }}>{monthNames[month]} {year}</h4>
-              <button onClick={handleNextMonth} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.85rem' }}>▶</button>
-            </div>
-
-            {/* MONTHLY SUMMARY METRIC PILLS */}
-            <div style={{ display: 'flex', justifyContent: 'space-around', padding: '10px 0', marginBottom: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '0.68rem', fontWeight: '700', color: '#10b981' }}>PRESENT</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{monthPresentCount}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '0.68rem', fontWeight: '700', color: '#ef4444' }}>ABSENT</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{monthAbsentCount}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '0.68rem', fontWeight: '700', color: '#38bdf8' }}>HOLIDAYS</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#38bdf8' }}>{monthHolidayCount}</div>
-              </div>
-            </div>
-
-            {/* DAYS OF WEEK */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: '8px', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)' }}>
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-                <div key={d} style={{ color: i === 0 ? '#38bdf8' : 'inherit' }}>{d}</div>
-              ))}
-            </div>
-
-            {/* CALENDAR DAYS GRID */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center' }}>
-              {Array.from({ length: firstDayIndex }).map((_, i) => (
-                <div key={`empty-${i}`} style={{ height: '36px' }} />
-              ))}
-
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                const dayOfWeek = new Date(year, month, dayNum).getDay();
-                const holidayName = HOLIDAYS[dStr] || (dayOfWeek === 0 ? "Sunday" : null);
-
-                const dayRecords = recordsByDate[dStr];
-                const isPresent = dayRecords?.some(r => r.status === 'Present');
-                const isAbsent = dayRecords && !isPresent;
-
-                let bgColor = 'var(--card-bg)';
-                let textColor = 'var(--text-main)';
-                let borderColor = 'var(--glass-border)';
-
-                if (holidayName) {
-                  bgColor = 'rgba(56, 189, 248, 0.18)';
-                  textColor = '#38bdf8';
-                  borderColor = '#38bdf8';
-                } else if (isPresent) {
-                  bgColor = 'rgba(16, 185, 129, 0.22)';
-                  textColor = '#10b981';
-                  borderColor = '#10b981';
-                } else if (isAbsent) {
-                  bgColor = 'rgba(239, 68, 68, 0.22)';
-                  textColor = '#ef4444';
-                  borderColor = '#ef4444';
-                }
-
-                return (
-                  <div
-                    key={dStr}
-                    onClick={() => setSelectedDayModal({ date: dStr, holiday: holidayName, records: dayRecords || [] })}
-                    style={{
-                      height: '38px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '10px',
-                      background: bgColor,
-                      color: textColor,
-                      border: `1px solid ${borderColor}`,
-                      fontWeight: '700',
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s ease'
-                    }}
-                  >
-                    {dayNum}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* COLOR LEGEND */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '16px', fontSize: '0.72rem', fontWeight: '700', flexWrap: 'wrap' }}>
-              <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>🟢 Present</span>
-              <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>🔴 Absent</span>
-              <span style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>🔵 Holiday</span>
-            </div>
-          </div>
-
           {/* SUBJECT-LEVEL PROGRESS BARS */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
             <h4 style={{ margin: '0 0 14px 0', fontSize: '0.95rem' }}>📚 Subject & Period Breakdown</h4>
@@ -513,6 +337,7 @@ export default function Student({ darkMode, setDarkMode }) {
                       </span>
                     </div>
 
+                    {/* Progress Bar Container */}
                     <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
                       <div style={{
                         width: `${subPct}%`,
@@ -530,7 +355,30 @@ export default function Student({ darkMode, setDarkMode }) {
             )}
           </div>
 
-          {/* RECENT ATTENDANCE HISTORY LOG */}
+          {/* MONTHLY BAR GRAPH */}
+          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+            <h4 style={{ margin: '0 0 4px 0' }}>📊 Monthly Attendance Graph</h4>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Tap a month bar to view total present days.</p>
+            
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '120px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
+              {!detailedStats?.monthlyBarGraph || detailedStats.monthlyBarGraph.length === 0 ? (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly attendance logged yet.</span>
+              ) : (
+                detailedStats.monthlyBarGraph.map((item, idx) => (
+                  <div key={idx} onClick={() => setSelectedMonthModal(item)} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{
+                      height: `${Math.min(item.presentDaysCount * 12 + 20, 90)}px`,
+                      background: 'linear-gradient(180deg, #818cf8, #4f46e5)',
+                      borderRadius: '8px 8px 0 0'
+                    }} />
+                    <span style={{ fontSize: '0.68rem', display: 'block', marginTop: '6px', color: 'var(--text-muted)' }}>{item.monthLabel}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* RECENT ATTENDANCE HISTORY LOG WITH DATE RANGE FILTERS */}
           <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Attendance Activity Log</h4>
@@ -565,6 +413,7 @@ export default function Student({ darkMode, setDarkMode }) {
               ))}
             </div>
 
+            {/* CUSTOM DATE RANGE PICKER INPUTS */}
             {dateRangeFilter === 'CUSTOM' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                 <div>
@@ -606,7 +455,7 @@ export default function Student({ darkMode, setDarkMode }) {
               />
             </div>
 
-            {/* HISTORY LIST */}
+            {/* FILTERED LIST */}
             <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
               {filteredHistory.length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0' }}>
@@ -639,39 +488,6 @@ export default function Student({ darkMode, setDarkMode }) {
                 ))
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* DAY DETAILS MODAL */}
-      {selectedDayModal && (
-        <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
-            <h3>📅 {selectedDayModal.date}</h3>
-
-            {selectedDayModal.holiday && (
-              <div style={{ margin: '14px 0', padding: '12px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', color: '#38bdf8', fontWeight: '700' }}>
-                🎉 Holiday: {selectedDayModal.holiday}
-              </div>
-            )}
-
-            {selectedDayModal.records.length > 0 ? (
-              <div style={{ margin: '14px 0', textAlign: 'left' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>SESSION ACTIVITY:</span>
-                {selectedDayModal.records.map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.85rem' }}>
-                    <span>{r.hour}</span>
-                    <strong style={{ color: r.status === 'Present' ? '#10b981' : '#ef4444' }}>{r.status}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : !selectedDayModal.holiday ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '16px 0' }}>No attendance sessions recorded on this day.</p>
-            ) : null}
-
-            <button onClick={() => setSelectedDayModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
-              Close
-            </button>
           </div>
         </div>
       )}
@@ -710,6 +526,20 @@ export default function Student({ darkMode, setDarkMode }) {
             >
               Close Camera
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MONTHLY BAR MODAL */}
+      {selectedMonthModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ textAlign: 'center' }}>
+            <h3>📅 {selectedMonthModal.monthLabel} Attendance</h3>
+            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#818cf8', margin: '15px 0' }}>
+              {selectedMonthModal.presentDaysCount} Days
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total days marked Present in {selectedMonthModal.monthLabel}.</p>
+            <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '14px', width: '100%' }}>Close</button>
           </div>
         </div>
       )}
