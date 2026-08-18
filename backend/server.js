@@ -216,35 +216,62 @@ app.get('/api/student/stats', async (req, res) => {
 });
 
 // 3. DETAILED ADVANCED STUDENT ATTENDANCE STATS (WORKING DAYS, SUBJECTS & BAR GRAPH)
+// DETAILED ADVANCED STUDENT ATTENDANCE STATS (Accurate Absent & Working Days Calculation)
 app.get('/api/student/detailed-stats', async (req, res) => {
   try {
     const { roll_no } = req.query;
     if (!roll_no) return res.status(400).json({ success: false, message: 'Roll number required' });
 
     const cleanRoll = roll_no.trim().toUpperCase();
-    const records = await Attendance.find({ roll_no: cleanRoll });
+    
+    // 1. Fetch student info to get department
+    const student = await Student.findOne({ roll_no: cleanRoll });
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
 
-    const totalPresent = records.filter(r => r.status === 'Present').length;
-    const totalAbsent = records.filter(r => r.status === 'Absent').length;
-    const totalWorkingDays = new Set(records.map(r => r.date)).size;
+    // 2. Fetch all unique class sessions/dates held for this student's department
+    const deptAttendanceRecords = await Attendance.find({ 
+      dept_code: new RegExp(`^${student.dept_code.trim()}$`, 'i') 
+    });
 
-    // Subject Breakdown
+    const totalWorkingDaysSet = new Set(deptAttendanceRecords.map(r => r.date));
+    const totalWorkingDays = totalWorkingDaysSet.size;
+
+    // 3. Fetch specific records for this student
+    const studentRecords = await Attendance.find({ roll_no: cleanRoll });
+
+    const totalPresent = studentRecords.filter(r => r.status === 'Present').length;
+    
+    // Explicit absent records or difference from department total held periods
+    const explicitAbsent = studentRecords.filter(r => r.status === 'Absent').length;
+    const totalHeldPeriods = deptAttendanceRecords.length > 0 
+      ? new Set(deptAttendanceRecords.map(r => `${r.date}_${r.hour}`)).size 
+      : 0;
+
+    // Total absent is either explicit 'Absent' records or classes held minus present
+    const totalAbsent = Math.max(explicitAbsent, Math.max(0, totalHeldPeriods - totalPresent));
+
+    // 4. Subject & Period Breakdown
     const subjectMap = {};
-    records.forEach(r => {
+    studentRecords.forEach(r => {
       const subj = r.hour || 'General Class';
       if (!subjectMap[subj]) {
         subjectMap[subj] = { present: 0, absent: 0, totalPeriods: 0 };
       }
       subjectMap[subj].totalPeriods += 1;
-      if (r.status === 'Present') subjectMap[subj].present += 1;
-      else subjectMap[subj].absent += 1;
+      if (r.status === 'Present') {
+        subjectMap[subj].present += 1;
+      } else {
+        subjectMap[subj].absent += 1;
+      }
     });
 
-    // Monthly Bar Graph Data
+    // 5. Monthly Bar Graph Data
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const monthlyBarDataMap = {};
 
-    records.forEach(r => {
+    studentRecords.forEach(r => {
       const dateObj = new Date(r.date);
       const mKey = `${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
       
