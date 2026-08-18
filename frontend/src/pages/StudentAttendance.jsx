@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 
 // Gazetted / Festival Holidays Calendar (YYYY-MM-DD)
 const HOLIDAYS = {
@@ -78,38 +77,42 @@ export default function Student({ darkMode, setDarkMode }) {
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
-  // QR Scanner Initialization
-  useEffect(() => {
-    if (isCameraOpen && !scannerRef.current) {
-      setCameraPermissionError(null);
+ useEffect(() => {
+  if (isCameraOpen && !scannerRef.current) {
+    setCameraPermissionError(null);
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(() => {
-          const scanner = new Html5QrcodeScanner(
-            "qr-reader-container",
-            { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
-            false
-          );
-          scanner.render(onScanSuccess, onScanFailure);
-          scannerRef.current = scanner;
-        })
-        .catch(() => {
-          setCameraPermissionError("Camera permission denied. Please allow camera access in browser settings.");
-        });
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
+      return;
     }
 
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
-        scannerRef.current = null;
-      }
-    };
-  }, [isCameraOpen]);
+    if (!window.Html5QrcodeScanner) {
+      setCameraPermissionError("Scanner library is loading, please try again in a moment.");
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(() => {
+        const scanner = new window.Html5QrcodeScanner(
+          "qr-reader-container",
+          { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
+          false
+        );
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+      })
+      .catch(() => {
+        setCameraPermissionError("Camera permission denied. Please allow camera access in browser settings.");
+      });
+  }
+
+  return () => {
+    if (scannerRef.current) {
+      scannerRef.current.clear().catch(() => {});
+      scannerRef.current = null;
+    }
+  };
+}, [isCameraOpen]);
 
   const fetchDetailedStats = async (rollNo) => {
     try {
