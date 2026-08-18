@@ -2,19 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
-// Timetable Schedule Configuration
-const SCHEDULE = [
-  { hour: "Hour 1 (09:00 AM)", start: 9, end: 10, label: "09:00 AM - 10:00 AM" },
-  { hour: "Hour 2 (10:00 AM)", start: 10, end: 11, label: "10:00 AM - 11:00 AM" },
-  { hour: "Hour 3 (11:15 AM)", start: 11, end: 12, label: "11:15 AM - 12:15 PM" },
-  { hour: "Hour 4 (12:15 PM)", start: 12, end: 13, label: "12:15 PM - 01:15 PM" }
-];
-
 export default function Student() {
   const [studentInfo, setStudentInfo] = useState(null);
   const [rollNoInput, setRollNoInput] = useState('');
   const [detailedStats, setDetailedStats] = useState(null);
   const [selectedMonthModal, setSelectedMonthModal] = useState(null);
+
+  // Search filter state for recent attendance activity
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
 
   // Scanner States & Safe Permissions
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -75,7 +70,7 @@ export default function Student() {
           scanner.render(onScanSuccess, onScanFailure);
           scannerRef.current = scanner;
         })
-        .catch((err) => {
+        .catch(() => {
           setCameraPermissionError("Camera permission denied. Please allow camera access in browser settings.");
         });
     }
@@ -113,14 +108,6 @@ export default function Student() {
       }
     } catch (err) {
       alert("Roll Number not registered in system. Please contact faculty.");
-    }
-  };
-
-  const handleUnlinkDevice = () => {
-    if (confirm("Disconnect this device and switch Roll Number?")) {
-      localStorage.removeItem("student_profile");
-      setStudentInfo(null);
-      setDetailedStats(null);
     }
   };
 
@@ -181,7 +168,6 @@ export default function Student() {
 
           if (res.data && res.data.success) {
             setScanMessage({ type: 'success', text: `✅ Verified! Attendance marked PRESENT.` });
-            // Automatic live refresh after successful scan
             fetchDetailedStats(studentInfo.roll_no);
           }
         } catch (err) {
@@ -199,13 +185,16 @@ export default function Student() {
     );
   };
 
-  // Determine current active class hour
-  const currentHour = new Date().getHours();
-  const currentPeriod = SCHEDULE.find(s => currentHour >= s.start && currentHour < s.end);
-
   const percentage = detailedStats ? detailedStats.attendancePercentage : 0;
   const isSafe = percentage >= 75;
   const isWarning = percentage >= 65 && percentage < 75;
+
+  // Filter recent history records based on search input
+  const filteredHistory = (detailedStats?.recentHistory || []).filter(item =>
+    item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
+    item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
+    item.status.toLowerCase().includes(historySearchTerm.toLowerCase())
+  );
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
@@ -228,7 +217,7 @@ export default function Student() {
           <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
           <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Enter your Roll Number once to link this mobile device.
+            Enter your Roll Number once to link this mobile device permanently.
           </p>
           <form onSubmit={handleRegister}>
             <input
@@ -273,29 +262,6 @@ export default function Student() {
             </div>
           </div>
 
-          {/* TODAY SCHEDULE & CURRENT HOUR HIGHLIGHT */}
-          <div className="card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase' }}>TODAY'S SCHEDULE</span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginTop: '10px' }}>
-              {SCHEDULE.map(s => {
-                const isActive = currentPeriod?.hour === s.hour;
-                return (
-                  <div key={s.hour} style={{
-                    padding: '8px 10px',
-                    borderRadius: '10px',
-                    fontSize: '0.78rem',
-                    background: isActive ? 'rgba(99, 102, 241, 0.2)' : 'var(--card-bg)',
-                    border: isActive ? '1px solid #818cf8' : '1px solid var(--glass-border)',
-                    color: isActive ? '#818cf8' : 'var(--text-main)',
-                    fontWeight: isActive ? '700' : '500'
-                  }}>
-                    {isActive && '🔴 Live: '}{s.hour.split(' ')[0]} ({s.label})
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* OVERALL METRICS CARDS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
             <div className="card" style={{ padding: '14px 8px', textAlign: 'center' }}>
@@ -330,14 +296,61 @@ export default function Student() {
             )}
           </div>
 
-          {/* RECENT ATTENDANCE HISTORY LOG */}
+          {/* MONTHLY BAR GRAPH */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem' }}>🕒 Recent Attendance Activity</h4>
-            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-              {!detailedStats?.recentHistory || detailedStats.recentHistory.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No recent records found.</p>
+            <h4 style={{ margin: '0 0 4px 0' }}>📊 Monthly Attendance Graph</h4>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Tap a month bar to view total present days.</p>
+            
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '120px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
+              {!detailedStats?.monthlyBarGraph || detailedStats.monthlyBarGraph.length === 0 ? (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly attendance logged yet.</span>
               ) : (
-                detailedStats.recentHistory.map((item, idx) => (
+                detailedStats.monthlyBarGraph.map((item, idx) => (
+                  <div key={idx} onClick={() => setSelectedMonthModal(item)} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{
+                      height: `${Math.min(item.presentDaysCount * 12 + 20, 90)}px`,
+                      background: 'linear-gradient(180deg, #818cf8, #4f46e5)',
+                      borderRadius: '8px 8px 0 0'
+                    }} />
+                    <span style={{ fontSize: '0.68rem', display: 'block', marginTop: '6px', color: 'var(--text-muted)' }}>{item.monthLabel}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* RECENT ATTENDANCE HISTORY LOG WITH SEARCH BAR */}
+          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Recent Attendance Activity</h4>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
+            </div>
+
+            {/* SEARCH INPUT */}
+            <div style={{ marginBottom: '12px' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search by date (YYYY-MM-DD), hour, or status..."
+                value={historySearchTerm}
+                onChange={(e) => setHistorySearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  fontSize: '0.82rem',
+                  border: '1px solid var(--glass-border)',
+                  background: 'var(--card-bg)'
+                }}
+              />
+            </div>
+
+            <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+              {filteredHistory.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0' }}>
+                  {historySearchTerm ? 'No matching records found.' : 'No recent records found.'}
+                </p>
+              ) : (
+                filteredHistory.map((item, idx) => (
                   <div key={idx} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -364,15 +377,10 @@ export default function Student() {
               )}
             </div>
           </div>
-
-          {/* UNLINK PROFILE BUTTON */}
-          <button onClick={handleUnlinkDevice} className="btn btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '0.82rem', marginBottom: '20px' }}>
-            🔄 Unlink Profile / Switch Roll No
-          </button>
         </div>
       )}
 
-      {/* CAMERA SCANNER MODAL WITH FALLBACK PERMISSION PROMPT */}
+      {/* CAMERA SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
@@ -406,6 +414,20 @@ export default function Student() {
             >
               Close Camera
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MONTHLY BAR MODAL */}
+      {selectedMonthModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ textAlign: 'center' }}>
+            <h3>📅 {selectedMonthModal.monthLabel} Attendance</h3>
+            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#818cf8', margin: '15px 0' }}>
+              {selectedMonthModal.presentDaysCount} Days
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total days marked Present in {selectedMonthModal.monthLabel}.</p>
+            <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '14px', width: '100%' }}>Close</button>
           </div>
         </div>
       )}
