@@ -28,7 +28,7 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/student" element={<StudentAttendance />} />
-        <Route path="/student" element={<Student darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        
       </Routes>
     </BrowserRouter>
   );
