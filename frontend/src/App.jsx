@@ -1,35 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
-import StudentAttendance from './pages/StudentAttendance';
+import AdminDashboard from './pages/AdminDashboard';
+import Student from './pages/Student';
+import './style.css';
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("appTheme") === "dark");
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
-      document.body.classList.add("dark-mode");
-      localStorage.setItem("appTheme", "dark");
+      document.body.classList.add('dark-mode');
     } else {
-      document.body.classList.remove("dark-mode");
-      localStorage.setItem("appTheme", "light");
+      document.body.classList.remove('dark-mode');
     }
   }, [darkMode]);
 
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/student" element={<StudentAttendance />} />
+        {/* Faculty Login */}
+        <Route path="/" element={<Login />} />
         
+        {/* Faculty Dashboard */}
+        <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        
+        {/* Admin Login */}
+        <Route path="/admin-login" element={<AdminLogin />} />
+        
+        {/* Admin Dashboard */}
+        <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        
+        {/* Student Portal */}
+        <Route path="/student" element={<Student darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
