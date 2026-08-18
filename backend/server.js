@@ -215,44 +215,41 @@ app.get('/api/student/stats', async (req, res) => {
   }
 });
 
-// 3. DETAILED ADVANCED STUDENT ATTENDANCE STATS (WORKING DAYS, SUBJECTS & BAR GRAPH)
-// DETAILED ADVANCED STUDENT ATTENDANCE STATS (Accurate Absent & Working Days Calculation)
 app.get('/api/student/detailed-stats', async (req, res) => {
   try {
     const { roll_no } = req.query;
     if (!roll_no) return res.status(400).json({ success: false, message: 'Roll number required' });
 
     const cleanRoll = roll_no.trim().toUpperCase();
-    
-    // 1. Fetch student info to get department
     const student = await Student.findOne({ roll_no: cleanRoll });
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    // 2. Fetch all unique class sessions/dates held for this student's department
-    const deptAttendanceRecords = await Attendance.find({ 
+    // 1. Fetch Department Level Total Held Sessions
+    const deptRecords = await Attendance.find({ 
       dept_code: new RegExp(`^${student.dept_code.trim()}$`, 'i') 
     });
 
-    const totalWorkingDaysSet = new Set(deptAttendanceRecords.map(r => r.date));
-    const totalWorkingDays = totalWorkingDaysSet.size;
-
-    // 3. Fetch specific records for this student
-    const studentRecords = await Attendance.find({ roll_no: cleanRoll });
-
-    const totalPresent = studentRecords.filter(r => r.status === 'Present').length;
-    
-    // Explicit absent records or difference from department total held periods
-    const explicitAbsent = studentRecords.filter(r => r.status === 'Absent').length;
-    const totalHeldPeriods = deptAttendanceRecords.length > 0 
-      ? new Set(deptAttendanceRecords.map(r => `${r.date}_${r.hour}`)).size 
+    const totalHeldPeriods = deptRecords.length > 0
+      ? new Set(deptRecords.map(r => `${r.date}_${r.hour}`)).size
       : 0;
 
-    // Total absent is either explicit 'Absent' records or classes held minus present
+    const totalWorkingDays = new Set(deptRecords.map(r => r.date)).size;
+
+    // 2. Fetch Student Records
+    const studentRecords = await Attendance.find({ roll_no: cleanRoll }).sort({ date: -1, updated_at: -1 });
+
+    const totalPresent = studentRecords.filter(r => r.status === 'Present').length;
+    const explicitAbsent = studentRecords.filter(r => r.status === 'Absent').length;
     const totalAbsent = Math.max(explicitAbsent, Math.max(0, totalHeldPeriods - totalPresent));
 
-    // 4. Subject & Period Breakdown
+    const totalClassesCount = totalPresent + totalAbsent;
+    const attendancePercentage = totalClassesCount > 0 
+      ? Math.round((totalPresent / totalClassesCount) * 100) 
+      : 100;
+
+    // 3. Subject Breakdown
     const subjectMap = {};
     studentRecords.forEach(r => {
       const subj = r.hour || 'General Class';
@@ -260,23 +257,19 @@ app.get('/api/student/detailed-stats', async (req, res) => {
         subjectMap[subj] = { present: 0, absent: 0, totalPeriods: 0 };
       }
       subjectMap[subj].totalPeriods += 1;
-      if (r.status === 'Present') {
-        subjectMap[subj].present += 1;
-      } else {
-        subjectMap[subj].absent += 1;
-      }
+      if (r.status === 'Present') subjectMap[subj].present += 1;
+      else subjectMap[subj].absent += 1;
     });
 
-    // 5. Monthly Bar Graph Data
+    // 4. Monthly Bar Graph Data
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const monthlyBarDataMap = {};
 
     studentRecords.forEach(r => {
       const dateObj = new Date(r.date);
       const mKey = `${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
-      
       if (!monthlyBarDataMap[mKey]) {
-        monthlyBarDataMap[mKey] = { monthLabel: mKey, presentDaysCount: 0, totalDaysCount: 0, presentDates: new Set() };
+        monthlyBarDataMap[mKey] = { monthLabel: mKey, presentDaysCount: 0, presentDates: new Set() };
       }
       if (r.status === 'Present') {
         monthlyBarDataMap[mKey].presentDates.add(r.date);
@@ -288,13 +281,23 @@ app.get('/api/student/detailed-stats', async (req, res) => {
       presentDaysCount: m.presentDates.size
     }));
 
+    // 5. Recent Attendance Logs (Last 10 Records)
+    const recentHistory = studentRecords.slice(0, 10).map(r => ({
+      date: r.date,
+      hour: r.hour,
+      status: r.status,
+      teacherId: r.teacher_id || 'Faculty'
+    }));
+
     res.json({
       success: true,
       totalWorkingDays,
       totalPresent,
       totalAbsent,
+      attendancePercentage,
       subjects: subjectMap,
-      monthlyBarGraph
+      monthlyBarGraph,
+      recentHistory
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

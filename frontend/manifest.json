@@ -1,0 +1,16 @@
+{
+  "short_name": "SmartAttend",
+  "name": "SmartAttend Student Portal",
+  "icons": [
+    {
+      "src": "/Srivishnu_Logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/student",
+  "background_color": "#090d16",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "portrait"
+}
