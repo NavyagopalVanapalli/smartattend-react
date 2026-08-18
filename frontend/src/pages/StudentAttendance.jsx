@@ -8,8 +8,11 @@ export default function Student() {
   const [detailedStats, setDetailedStats] = useState(null);
   const [selectedMonthModal, setSelectedMonthModal] = useState(null);
 
-  // Search filter state for recent attendance activity
+  // History Filter States
   const [historySearchTerm, setHistorySearchTerm] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState('ALL'); // ALL, WEEK, MONTH, CUSTOM
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Scanner States & Safe Permissions
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -189,12 +192,33 @@ export default function Student() {
   const isSafe = percentage >= 75;
   const isWarning = percentage >= 65 && percentage < 75;
 
-  // Filter recent history records based on search input
-  const filteredHistory = (detailedStats?.recentHistory || []).filter(item =>
-    item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-    item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-    item.status.toLowerCase().includes(historySearchTerm.toLowerCase())
-  );
+  // Filter Attendance History by Date Range & Search Text
+  const filteredHistory = (detailedStats?.recentHistory || []).filter(item => {
+    const matchesSearch = item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
+      item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
+      item.status.toLowerCase().includes(historySearchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    const itemDate = new Date(item.date);
+    const now = new Date();
+
+    if (dateRangeFilter === 'WEEK') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      return itemDate >= weekAgo;
+    } else if (dateRangeFilter === 'MONTH') {
+      const monthAgo = new Date();
+      monthAgo.setDate(now.getDate() - 30);
+      return itemDate >= monthAgo;
+    } else if (dateRangeFilter === 'CUSTOM') {
+      if (customStartDate && item.date < customStartDate) return false;
+      if (customEndDate && item.date > customEndDate) return false;
+      return true;
+    }
+
+    return true; // 'ALL'
+  });
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
@@ -296,6 +320,41 @@ export default function Student() {
             )}
           </div>
 
+          {/* SUBJECT-LEVEL PROGRESS BARS */}
+          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+            <h4 style={{ margin: '0 0 14px 0', fontSize: '0.95rem' }}>📚 Subject & Period Breakdown</h4>
+            {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
+              Object.entries(detailedStats.subjects).map(([subj, data]) => {
+                const subPct = data.totalPeriods > 0 ? Math.round((data.present / data.totalPeriods) * 100) : 0;
+                const isSubSafe = subPct >= 75;
+
+                return (
+                  <div key={subj} style={{ marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.85rem' }}>{subj}</strong>
+                      <span style={{ fontSize: '0.82rem', fontWeight: '700', color: isSubSafe ? '#10b981' : '#ef4444' }}>
+                        {subPct}% ({data.present}/{data.totalPeriods})
+                      </span>
+                    </div>
+
+                    {/* Progress Bar Container */}
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${subPct}%`,
+                        height: '100%',
+                        background: isSubSafe ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #ef4444, #f87171)',
+                        borderRadius: '6px',
+                        transition: 'width 0.5s ease'
+                      }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No class records found.</p>
+            )}
+          </div>
+
           {/* MONTHLY BAR GRAPH */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
             <h4 style={{ margin: '0 0 4px 0' }}>📊 Monthly Attendance Graph</h4>
@@ -319,12 +378,64 @@ export default function Student() {
             </div>
           </div>
 
-          {/* RECENT ATTENDANCE HISTORY LOG WITH SEARCH BAR */}
+          {/* RECENT ATTENDANCE HISTORY LOG WITH DATE RANGE FILTERS */}
           <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Recent Attendance Activity</h4>
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Attendance Activity Log</h4>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
             </div>
+
+            {/* QUICK DATE RANGE TABS */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {[
+                { label: 'All', value: 'ALL' },
+                { label: 'Past 7 Days', value: 'WEEK' },
+                { label: 'Past 30 Days', value: 'MONTH' },
+                { label: 'Custom', value: 'CUSTOM' }
+              ].map(tab => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setDateRangeFilter(tab.value)}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '0.74rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    border: '1px solid var(--glass-border)',
+                    background: dateRangeFilter === tab.value ? 'var(--primary)' : 'var(--card-bg)',
+                    color: dateRangeFilter === tab.value ? '#ffffff' : 'var(--text-main)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* CUSTOM DATE RANGE PICKER INPUTS */}
+            {dateRangeFilter === 'CUSTOM' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.68rem', display: 'block', marginBottom: '2px' }}>From</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    style={{ width: '100%', padding: '6px', fontSize: '0.78rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.68rem', display: 'block', marginBottom: '2px' }}>To</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    style={{ width: '100%', padding: '6px', fontSize: '0.78rem' }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* SEARCH INPUT */}
             <div style={{ marginBottom: '12px' }}>
@@ -344,10 +455,11 @@ export default function Student() {
               />
             </div>
 
+            {/* FILTERED LIST */}
             <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
               {filteredHistory.length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0' }}>
-                  {historySearchTerm ? 'No matching records found.' : 'No recent records found.'}
+                  No matching attendance records found.
                 </p>
               ) : (
                 filteredHistory.map((item, idx) => (
