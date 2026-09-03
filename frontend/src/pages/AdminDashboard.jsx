@@ -3,7 +3,7 @@ import axios from 'axios';
 
 export default function AdminDashboard({ darkMode, setDarkMode }) {
   // Navigation & Data States
-  const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty' | 'analytics'
+  const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty'
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [stats, setStats] = useState({ totalStudents: 0, totalTeachers: 0, todayPresent: 0, todayAbsent: 0 });
@@ -42,7 +42,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   });
 
   useEffect(() => {
-    fetchDashboardData();
+    // Verify admin authentication
+    const isLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
+    if (!isLoggedIn) {
+      window.location.href = '/admin-login';
+    } else {
+      fetchDashboardData();
+    }
   }, []);
 
   const fetchDashboardData = async () => {
@@ -120,6 +126,12 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("isAdminLoggedIn");
+    localStorage.removeItem("activeAdmin");
+    window.location.href = '/admin-login';
+  };
+
   const filteredStudents = students.filter(s =>
     s.full_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
     s.roll_no.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -133,31 +145,107 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   );
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
+    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
       
-      {/* TOP BAR */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>🛡️ Admin Management Console</h2>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Institutional Academic & Attendance Management</span>
+      {/* EXACT EXECUTIVE CONTROL CENTER HEADER (SCREENSHOT 433) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '16px 24px',
+        borderRadius: '16px',
+        background: darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+        border: '1px solid var(--glass-border)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '14px'
+      }}>
+        {/* Left branding with purple lightning icon */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.25rem',
+            color: '#ffffff',
+            boxShadow: '0 6px 16px rgba(99, 102, 241, 0.3)'
+          }}>
+            ⚡
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
+              Executive Control Center
+            </h2>
+            <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+              Logged in as <strong style={{ color: '#6366f1' }}>System Administrator</strong>
+            </span>
+          </div>
         </div>
 
+        {/* Right header action buttons */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={() => window.location.href = '/'}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontSize: '0.86rem',
+              fontWeight: '700',
+              border: '1px solid var(--glass-border)',
+              background: darkMode ? 'rgba(255,255,255,0.08)' : '#f8fafc',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            ← Main Portal
+          </button>
+
           {setDarkMode && (
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.85rem', padding: '8px 14px', borderRadius: '10px' }}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '10px',
+                fontSize: '0.86rem',
+                fontWeight: '700',
+                border: '1px solid var(--glass-border)',
+                background: darkMode ? 'rgba(255,255,255,0.08)' : '#f8fafc',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
             >
-              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+              {darkMode ? '☀️ Light' : '🌙 Dark'}
             </button>
           )}
+
           <button
-            onClick={() => { localStorage.removeItem('admin_session'); window.location.href = '/admin-login'; }}
-            className="btn btn-secondary"
-            style={{ fontSize: '0.85rem', padding: '8px 14px', borderRadius: '10px', color: '#ef4444' }}
+            onClick={handleLogout}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontSize: '0.86rem',
+              fontWeight: '700',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
           >
-            Log Out
+            🔒 Logout
           </button>
         </div>
       </div>
@@ -165,8 +253,8 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       {/* NOTIFICATION BANNER */}
       {message && (
         <div style={{
-          padding: '12px 16px',
-          borderRadius: '10px',
+          padding: '12px 18px',
+          borderRadius: '12px',
           marginBottom: '20px',
           fontWeight: '600',
           fontSize: '0.88rem',
@@ -178,7 +266,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           alignItems: 'center'
         }}>
           <span>{message.text}</span>
-          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
+          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: '800' }}>✕</button>
         </div>
       )}
 
@@ -202,19 +290,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* TAB CONTROLS */}
+      {/* DIRECTORY NAVIGATION TABS */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
         <button
           onClick={() => setActiveTab('students')}
           style={{
-            padding: '8px 18px',
-            borderRadius: '10px',
+            padding: '10px 20px',
+            borderRadius: '12px',
             fontSize: '0.9rem',
             fontWeight: '700',
             border: 'none',
             cursor: 'pointer',
             background: activeTab === 'students' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'students' ? '#ffffff' : 'var(--text-muted)'
+            color: activeTab === 'students' ? '#ffffff' : 'var(--text-muted)',
+            transition: 'all 0.2s ease'
           }}
         >
           👨‍🎓 Students Directory
@@ -222,30 +311,31 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         <button
           onClick={() => setActiveTab('faculty')}
           style={{
-            padding: '8px 18px',
-            borderRadius: '10px',
+            padding: '10px 20px',
+            borderRadius: '12px',
             fontSize: '0.9rem',
             fontWeight: '700',
             border: 'none',
             cursor: 'pointer',
             background: activeTab === 'faculty' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'faculty' ? '#ffffff' : 'var(--text-muted)'
+            color: activeTab === 'faculty' ? '#ffffff' : 'var(--text-muted)',
+            transition: 'all 0.2s ease'
           }}
         >
           👨‍🏫 Faculty Directory
         </button>
       </div>
 
-      {/* ============================== TAB 1: STUDENTS ============================== */}
+      {/* ============================== TAB 1: STUDENTS DIRECTORY ============================== */}
       {activeTab === 'students' && (
         <div className="card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <input
               type="text"
               placeholder="🔍 Search student by name, roll number, or department..."
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              style={{ padding: '10px 14px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
+              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
             />
             <button
               onClick={() => setShowAddStudentModal(true)}
@@ -261,7 +351,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '12px' }}>Roll No</th>
-                  <th style={{ padding: '12px' }}>Student Name (Click for Profile)</th>
+                  <th style={{ padding: '12px' }}>Student Name (Click for Portfolio)</th>
                   <th style={{ padding: '12px' }}>Department</th>
                   <th style={{ padding: '12px' }}>Year & Section</th>
                   <th style={{ padding: '12px' }}>Parent Phone</th>
@@ -279,8 +369,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   filteredStudents.map((s) => (
                     <tr key={s._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '12px', fontWeight: '700' }}>{s.roll_no}</td>
-                      
-                      {/* CLICKABLE STUDENT NAME (FEATURE 1) */}
                       <td
                         onClick={() => setViewingStudentModal(s)}
                         style={{
@@ -294,7 +382,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                       >
                         {s.full_name} ℹ️
                       </td>
-
                       <td style={{ padding: '12px' }}>{s.dept_code}</td>
                       <td style={{ padding: '12px' }}>{s.year_level} - {s.section}</td>
                       <td style={{ padding: '12px' }}>{s.parent_phone}</td>
@@ -316,16 +403,16 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* ============================== TAB 2: FACULTY ============================== */}
+      {/* ============================== TAB 2: FACULTY DIRECTORY ============================== */}
       {activeTab === 'faculty' && (
         <div className="card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <input
               type="text"
               placeholder="🔍 Search faculty by name, ID, or department..."
               value={teacherSearch}
               onChange={(e) => setTeacherSearch(e.target.value)}
-              style={{ padding: '10px 14px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
+              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
             />
             <button
               onClick={() => setShowAddTeacherModal(true)}
@@ -359,8 +446,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   filteredTeachers.map((t) => (
                     <tr key={t._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '12px', fontWeight: '700' }}>{t.teacher_id}</td>
-                      
-                      {/* CLICKABLE FACULTY NAME (FEATURE 2) */}
                       <td
                         onClick={() => setViewingTeacherModal(t)}
                         style={{
@@ -374,7 +459,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                       >
                         {t.full_name} ℹ️
                       </td>
-
                       <td style={{ padding: '12px' }}>{t.dept_code}</td>
                       <td style={{ padding: '12px' }}>{t.email}</td>
                       <td style={{ padding: '12px' }}>{t.phone || 'Not Registered'}</td>
@@ -396,9 +480,9 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* ============================== MODALS SECTION ============================== */}
+      {/* ============================== MODALS ============================== */}
 
-      {/* 1. STUDENT DETAILED PROFILE MODAL */}
+      {/* 1. STUDENT EXTENDED PROFILE MODAL */}
       {viewingStudentModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '460px', textAlign: 'left' }}>
@@ -464,7 +548,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* 2. TEACHER DETAILED PROFILE MODAL */}
+      {/* 2. FACULTY EXTENDED PROFILE MODAL */}
       {viewingTeacherModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '460px', textAlign: 'left' }}>
