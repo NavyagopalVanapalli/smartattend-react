@@ -1,14 +1,17 @@
 const mongoose = require('mongoose');
 
-const studentSchema = new mongoose.Schema({
-  roll_no: { type: String, required: true },
+const StudentSchema = new mongoose.Schema({
+  roll_no: { type: String, required: true, unique: true },
   full_name: { type: String, required: true },
-  parent_phone: { type: String, required: true },
-  dept_code: { type: String, required: true },
-  year_level: { type: String, required: true },
-  section: { type: String, required: true }
+  parent_phone: { type: String, default: '0000000000' },
+  dept_code: { type: String, default: 'MCA' },
+  year_level: { type: String, default: '1st Year' },
+  section: { type: String, default: 'Sec A' },
+  // Extended Profile Attributes
+  academic_period: { type: String, default: '2024 - 2026' },
+  projects: { type: [String], default: [] },
+  programming_languages: { type: [String], default: [] },
+  certificates: { type: [String], default: [] }
 }, { timestamps: true });
 
-studentSchema.index({ roll_no: 1, dept_code: 1 }, { unique: true });
-
-module.exports = mongoose.model('Student', studentSchema);
+module.exports = mongoose.model('Student', StudentSchema);

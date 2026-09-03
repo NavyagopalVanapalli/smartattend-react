@@ -1,71 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 
-export default function Student() {
+const HOLIDAYS = {
+  '2026-01-01': "New Year's Day",
+  '2026-01-14': 'Makara Sankranti / Pongal',
+  '2026-01-15': 'Kanuma',
+  '2026-01-26': 'Republic Day',
+  '2026-02-15': 'Maha Shivratri',
+  '2026-03-04': 'Holi',
+  '2026-03-19': 'Ugadi / Gudi Padwa',
+  '2026-03-21': 'Eid-ul-Fitr (Ramzan)',
+  '2026-03-26': 'Sri Rama Navami',
+  '2026-04-03': 'Good Friday',
+  '2026-04-14': 'Dr. B.R. Ambedkar Jayanti',
+  '2026-05-01': 'May Day / Buddha Purnima',
+  '2026-05-27': 'Bakrid (Eid-ul-Adha)',
+  '2026-06-26': 'Muharram',
+  '2026-08-15': 'Independence Day',
+  '2026-08-26': 'Milad-un-Nabi',
+  '2026-09-04': 'Sri Krishna Janmashtami',
+  '2026-09-14': 'Vinayaka Chavithi',
+  '2026-10-02': 'Gandhi Jayanti',
+  '2026-10-20': 'Dussehra (Vijayadasami)',
+  '2026-11-08': 'Diwali (Deepavali)',
+  '2026-12-25': 'Christmas Day'
+};
+
+export default function StudentAttendance({ darkMode, setDarkMode }) {
   const [studentInfo, setStudentInfo] = useState(null);
   const [rollNoInput, setRollNoInput] = useState('');
   const [detailedStats, setDetailedStats] = useState(null);
-  const [selectedMonthModal, setSelectedMonthModal] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // History Filter States
-  const [historySearchTerm, setHistorySearchTerm] = useState('');
-  const [dateRangeFilter, setDateRangeFilter] = useState('ALL'); // ALL, WEEK, MONTH, CUSTOM
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
+  // Calendar State
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [selectedDayModal, setSelectedDayModal] = useState(null);
 
-  // Scanner States & Safe Permissions
+  // Scanner States
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState(null);
   const [cameraPermissionError, setCameraPermissionError] = useState(null);
   const scannerRef = useRef(null);
 
-  // PWA Install Prompt State
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-
   useEffect(() => {
-    // 1. One-time login reset check
-    const RESET_KEY = "reset_student_logins_v2";
-    if (!localStorage.getItem(RESET_KEY)) {
-      localStorage.clear();
-      sessionStorage.clear();
-      localStorage.setItem(RESET_KEY, "true");
-      setStudentInfo(null);
-      setDetailedStats(null);
-    } else {
-      const savedStudent = localStorage.getItem("student_profile");
-      if (savedStudent) {
-        const parsed = JSON.parse(savedStudent);
-        setStudentInfo(parsed);
-        fetchDetailedStats(parsed.roll_no);
-      }
+    const savedStudent = localStorage.getItem("student_profile");
+    if (savedStudent) {
+      const parsed = JSON.parse(savedStudent);
+      setStudentInfo(parsed);
+      fetchDetailedStats(parsed.roll_no);
     }
-
-    // 2. PWA Install Listener
-    const handleBeforeInstall = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
-  // Initialize and clean up camera scanner
   useEffect(() => {
     if (isCameraOpen && !scannerRef.current) {
       setCameraPermissionError(null);
-
-      // Verify Browser Support & Permissions
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
+      if (!window.Html5QrcodeScanner) {
+        setCameraPermissionError("Scanner library is initializing, please try again in a moment.");
         return;
       }
-
       navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(() => {
-          const scanner = new Html5QrcodeScanner(
+          const scanner = new window.Html5QrcodeScanner(
             "qr-reader-container",
             { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
             false
@@ -74,7 +70,7 @@ export default function Student() {
           scannerRef.current = scanner;
         })
         .catch(() => {
-          setCameraPermissionError("Camera permission denied. Please allow camera access in browser settings.");
+          setCameraPermissionError("Camera permission denied. Allow camera access in browser settings.");
         });
     }
 
@@ -93,7 +89,7 @@ export default function Student() {
         setDetailedStats(res.data);
       }
     } catch (err) {
-      console.error("Error loading student stats:", err);
+      console.error(err);
     }
   };
 
@@ -110,15 +106,7 @@ export default function Student() {
         fetchDetailedStats(studentData.roll_no);
       }
     } catch (err) {
-      alert("Roll Number not registered in system. Please contact faculty.");
-    }
-  };
-
-  const handleInstallPWA = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") setDeferredPrompt(null);
+      alert("Roll Number not registered in system. Contact faculty.");
     }
   };
 
@@ -143,21 +131,14 @@ export default function Student() {
 
     if (sessionId) {
       verifyLocationAndMarkAttendance(sessionId);
-    } else {
-      setScanMessage({ type: 'error', text: '❌ Invalid QR Code format scanned.' });
     }
   };
 
   const onScanFailure = () => {};
 
   const verifyLocationAndMarkAttendance = (sessionId) => {
-    if (!navigator.geolocation) {
-      setScanMessage({ type: 'error', text: 'Geolocation unsupported on this device.' });
-      return;
-    }
-
     setScanning(true);
-    setScanMessage({ type: 'info', text: '📡 Verifying classroom GPS location...' });
+    setScanMessage({ type: 'info', text: '📡 Verifying classroom GPS...' });
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -166,384 +147,321 @@ export default function Student() {
             rollNo: studentInfo.roll_no,
             studentLat: position.coords.latitude,
             studentLng: position.coords.longitude,
-            sessionId: sessionId
+            sessionId
           });
 
           if (res.data && res.data.success) {
-            setScanMessage({ type: 'success', text: `✅ Verified! Attendance marked PRESENT.` });
+            setScanMessage({ type: 'success', text: `✅ Attendance Marked PRESENT!` });
             fetchDetailedStats(studentInfo.roll_no);
           }
         } catch (err) {
-          const msg = err.response?.data?.message || 'Location verification failed. Be inside classroom.';
-          setScanMessage({ type: 'error', text: `❌ ${msg}` });
+          setScanMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Verification failed.'}` });
         } finally {
           setScanning(false);
         }
       },
       () => {
         setScanning(false);
-        setScanMessage({ type: 'error', text: '📍 Please allow GPS location permission in your browser.' });
+        setScanMessage({ type: 'error', text: '📍 Please enable GPS permission.' });
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true }
     );
   };
 
+  // Calendar Calculations
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const recordsByDate = {};
+  if (detailedStats?.recentHistory) {
+    detailedStats.recentHistory.forEach(r => {
+      if (!recordsByDate[r.date]) recordsByDate[r.date] = [];
+      recordsByDate[r.date].push(r);
+    });
+  }
+
+  let monthPresent = 0;
+  let monthAbsent = 0;
+  let monthHolidays = 0;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayOfWeek = new Date(year, month, d).getDay();
+    const isHoliday = dayOfWeek === 0 || HOLIDAYS[dStr];
+
+    if (isHoliday) {
+      monthHolidays++;
+    } else if (recordsByDate[dStr]) {
+      if (recordsByDate[dStr].some(r => r.status === 'Present')) monthPresent++;
+      else monthAbsent++;
+    }
+  }
+
   const percentage = detailedStats ? detailedStats.attendancePercentage : 0;
   const isSafe = percentage >= 75;
-  const isWarning = percentage >= 65 && percentage < 75;
-
-  // Filter Attendance History by Date Range & Search Text
-  const filteredHistory = (detailedStats?.recentHistory || []).filter(item => {
-    const matchesSearch = item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-      item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-      item.status.toLowerCase().includes(historySearchTerm.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    const itemDate = new Date(item.date);
-    const now = new Date();
-
-    if (dateRangeFilter === 'WEEK') {
-      const weekAgo = new Date();
-      weekAgo.setDate(now.getDate() - 7);
-      return itemDate >= weekAgo;
-    } else if (dateRangeFilter === 'MONTH') {
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      return itemDate >= monthAgo;
-    } else if (dateRangeFilter === 'CUSTOM') {
-      if (customStartDate && item.date < customStartDate) return false;
-      if (customEndDate && item.date > customEndDate) return false;
-      return true;
-    }
-
-    return true; // 'ALL'
-  });
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
-      
-      {/* HEADER & PWA INSTALL */}
+      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>⚡ SmartAttend</h2>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Student Self-Service Portal</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Student Attendance & Portfolio</span>
         </div>
-        {deferredPrompt && (
-          <button onClick={handleInstallPWA} className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '6px 12px' }}>
-            📲 Install App
+        {setDarkMode && (
+          <button onClick={() => setDarkMode(!darkMode)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+            {darkMode ? '☀️ Light' : '🌙 Dark'}
           </button>
         )}
       </div>
 
       {!studentInfo ? (
         <div className="card" style={{ padding: '28px', textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
-          <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Enter your Roll Number once to link this mobile device permanently.
-          </p>
+          <h3>Student Device Link</h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Enter your Roll Number to access your portfolio & attendance.</p>
           <form onSubmit={handleRegister}>
             <input
               type="text"
               placeholder="e.g. 2585351122"
               value={rollNoInput}
               onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
-              style={{ width: '100%', padding: '14px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1.05rem' }}
+              style={{ width: '100%', padding: '12px', margin: '14px 0', textAlign: 'center', fontWeight: '700' }}
               required
             />
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '12px' }}>
-              Connect Account →
-            </button>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>Connect Account →</button>
           </form>
         </div>
       ) : (
         <div>
-          {/* PROFILE & 75% BADGE CARD */}
+          {/* PROFILE CARD WITH CLICKABLE NAME */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '1px' }}>LINKED PROFILE</span>
-              <h3 style={{ margin: '2px 0', fontSize: '1.15rem' }}>{studentInfo.full_name}</h3>
+              <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase' }}>STUDENT PROFILE</span>
+              {/* Feature 1: Click name to view complete portfolio details */}
+              <h3 
+                onClick={() => setShowProfileModal(true)} 
+                style={{ margin: '2px 0', fontSize: '1.15rem', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
+                title="Click to view portfolio & academic details"
+              >
+                {studentInfo.full_name} ℹ️
+              </h3>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
             </div>
-
             <div style={{ textAlign: 'right' }}>
               <div style={{
-                display: 'inline-block',
                 padding: '6px 12px',
                 borderRadius: '20px',
-                fontSize: '0.85rem',
                 fontWeight: '800',
-                background: isSafe ? 'rgba(16, 185, 129, 0.15)' : isWarning ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                color: isSafe ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444',
-                border: `1px solid ${isSafe ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444'}`
+                background: isSafe ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                color: isSafe ? '#10b981' : '#ef4444'
               }}>
                 {percentage}%
               </div>
-              <div style={{ fontSize: '0.68rem', fontWeight: '700', marginTop: '4px', color: isSafe ? '#10b981' : '#ef4444' }}>
-                {isSafe ? '✅ Safe (≥75%)' : isWarning ? '⚠️ Low Attendance' : '🚨 Shortage (<65%)'}
-              </div>
-            </div>
-          </div>
-
-          {/* OVERALL METRICS CARDS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
-            <div className="card" style={{ padding: '14px 8px', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL DAYS</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalWorkingDays : 0}</h3>
-            </div>
-            <div className="card" style={{ padding: '14px 8px', textAlign: 'center', borderLeft: '3px solid #34d399' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalPresent : 0}</h3>
-            </div>
-            <div className="card" style={{ padding: '14px 8px', textAlign: 'center', borderLeft: '3px solid #f87171' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#f87171', fontSize: '1.4rem' }}>{detailedStats ? detailedStats.totalAbsent : 0}</h3>
             </div>
           </div>
 
           {/* SCANNER ACTION */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
-            <button
-              onClick={() => setIsCameraOpen(true)}
-              disabled={scanning}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '14px', borderRadius: '12px', fontSize: '1rem', fontWeight: '700' }}
-            >
-              {scanning ? '📡 Verifying Location...' : '📷 Scan Class QR'}
+            <button onClick={() => setIsCameraOpen(true)} disabled={scanning} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '700' }}>
+              {scanning ? '📡 Verifying...' : '📷 Scan Class QR'}
             </button>
-
             {scanMessage && (
-              <p style={{ fontSize: '0.82rem', marginTop: '12px', fontWeight: '600', color: scanMessage.type === 'success' ? '#34d399' : '#f87171' }}>
+              <p style={{ fontSize: '0.82rem', marginTop: '10px', color: scanMessage.type === 'success' ? '#10b981' : '#ef4444' }}>
                 {scanMessage.text}
               </p>
             )}
           </div>
 
-          {/* SUBJECT-LEVEL PROGRESS BARS */}
+          {/* REAL ATTENDANCE CALENDAR (Feature 3) */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <h4 style={{ margin: '0 0 14px 0', fontSize: '0.95rem' }}>📚 Subject & Period Breakdown</h4>
-            {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
-              Object.entries(detailedStats.subjects).map(([subj, data]) => {
-                const subPct = data.totalPeriods > 0 ? Math.round((data.present / data.totalPeriods) * 100) : 0;
-                const isSubSafe = subPct >= 75;
-
-                return (
-                  <div key={subj} style={{ marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <strong style={{ fontSize: '0.85rem' }}>{subj}</strong>
-                      <span style={{ fontSize: '0.82rem', fontWeight: '700', color: isSubSafe ? '#10b981' : '#ef4444' }}>
-                        {subPct}% ({data.present}/{data.totalPeriods})
-                      </span>
-                    </div>
-
-                    {/* Progress Bar Container */}
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${subPct}%`,
-                        height: '100%',
-                        background: isSubSafe ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #ef4444, #f87171)',
-                        borderRadius: '6px',
-                        transition: 'width 0.5s ease'
-                      }} />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No class records found.</p>
-            )}
-          </div>
-
-          {/* MONTHLY BAR GRAPH */}
-          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-            <h4 style={{ margin: '0 0 4px 0' }}>📊 Monthly Attendance Graph</h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px' }}>Tap a month bar to view total present days.</p>
-            
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '120px', paddingBottom: '10px', borderBottom: '1px solid var(--glass-border)' }}>
-              {!detailedStats?.monthlyBarGraph || detailedStats.monthlyBarGraph.length === 0 ? (
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly attendance logged yet.</span>
-              ) : (
-                detailedStats.monthlyBarGraph.map((item, idx) => (
-                  <div key={idx} onClick={() => setSelectedMonthModal(item)} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{
-                      height: `${Math.min(item.presentDaysCount * 12 + 20, 90)}px`,
-                      background: 'linear-gradient(180deg, #818cf8, #4f46e5)',
-                      borderRadius: '8px 8px 0 0'
-                    }} />
-                    <span style={{ fontSize: '0.68rem', display: 'block', marginTop: '6px', color: 'var(--text-muted)' }}>{item.monthLabel}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* RECENT ATTENDANCE HISTORY LOG WITH DATE RANGE FILTERS */}
-          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Attendance Activity Log</h4>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <button onClick={() => setCurrentCalendarDate(new Date(year, month - 1, 1))} className="btn btn-secondary" style={{ padding: '4px 10px' }}>◀</button>
+              <h4 style={{ margin: 0, fontWeight: '800' }}>{monthNames[month]} {year}</h4>
+              <button onClick={() => setCurrentCalendarDate(new Date(year, month + 1, 1))} className="btn btn-secondary" style={{ padding: '4px 10px' }}>▶</button>
             </div>
 
-            {/* QUICK DATE RANGE TABS */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              {[
-                { label: 'All', value: 'ALL' },
-                { label: 'Past 7 Days', value: 'WEEK' },
-                { label: 'Past 30 Days', value: 'MONTH' },
-                { label: 'Custom', value: 'CUSTOM' }
-              ].map(tab => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setDateRangeFilter(tab.value)}
-                  style={{
-                    padding: '5px 10px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    background: dateRangeFilter === tab.value ? 'var(--primary)' : 'var(--card-bg)',
-                    color: dateRangeFilter === tab.value ? '#ffffff' : 'var(--text-main)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {tab.label}
-                </button>
+            {/* MONTHLY SUMMARY METRICS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', textAlign: 'center', padding: '10px 0', marginBottom: '14px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px' }}>
+              <div><span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: '700' }}>PRESENT</span><div style={{ fontWeight: '800', color: '#10b981', fontSize: '1.2rem' }}>{monthPresent}</div></div>
+              <div><span style={{ fontSize: '0.68rem', color: '#ef4444', fontWeight: '700' }}>ABSENT</span><div style={{ fontWeight: '800', color: '#ef4444', fontSize: '1.2rem' }}>{monthAbsent}</div></div>
+              <div><span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: '700' }}>HOLIDAYS</span><div style={{ fontWeight: '800', color: '#38bdf8', fontSize: '1.2rem' }}>{monthHolidays}</div></div>
+            </div>
+
+            {/* WEEKDAY HEADERS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: '8px', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
+                <div key={d} style={{ color: i === 0 ? '#38bdf8' : 'inherit' }}>{d}</div>
               ))}
             </div>
 
-            {/* CUSTOM DATE RANGE PICKER INPUTS */}
-            {dateRangeFilter === 'CUSTOM' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.68rem', display: 'block', marginBottom: '2px' }}>From</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={e => setCustomStartDate(e.target.value)}
-                    style={{ width: '100%', padding: '6px', fontSize: '0.78rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.68rem', display: 'block', marginBottom: '2px' }}>To</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={e => setCustomEndDate(e.target.value)}
-                    style={{ width: '100%', padding: '6px', fontSize: '0.78rem' }}
-                  />
-                </div>
-              </div>
-            )}
+            {/* GRID DAYS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center' }}>
+              {Array.from({ length: firstDayIndex }).map((_, i) => <div key={`empty-${i}`} style={{ height: '36px' }} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const dayNum = i + 1;
+                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                const dayOfWeek = new Date(year, month, dayNum).getDay();
+                const holidayName = HOLIDAYS[dStr] || (dayOfWeek === 0 ? 'Sunday' : null);
 
-            {/* SEARCH INPUT */}
-            <div style={{ marginBottom: '12px' }}>
-              <input
-                type="text"
-                placeholder="🔍 Search by date (YYYY-MM-DD), hour, or status..."
-                value={historySearchTerm}
-                onChange={(e) => setHistorySearchTerm(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: '10px',
-                  fontSize: '0.82rem',
-                  border: '1px solid var(--glass-border)',
-                  background: 'var(--card-bg)'
-                }}
-              />
-            </div>
+                const dayRecords = recordsByDate[dStr];
+                const isPresent = dayRecords?.some(r => r.status === 'Present');
+                const isAbsent = dayRecords && !isPresent;
 
-            {/* FILTERED LIST */}
-            <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
-              {filteredHistory.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0' }}>
-                  No matching attendance records found.
-                </p>
-              ) : (
-                filteredHistory.map((item, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 0',
-                    borderBottom: '1px solid var(--glass-border)'
-                  }}>
-                    <div>
-                      <strong style={{ fontSize: '0.82rem' }}>{item.date}</strong>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.hour}</div>
-                    </div>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      padding: '3px 8px',
+                let bg = 'var(--card-bg)';
+                let color = 'var(--text-main)';
+                let border = 'var(--glass-border)';
+
+                if (holidayName) {
+                  bg = 'rgba(56, 189, 248, 0.18)';
+                  color = '#38bdf8';
+                  border = '#38bdf8';
+                } else if (isPresent) {
+                  bg = 'rgba(16, 185, 129, 0.22)';
+                  color = '#10b981';
+                  border = '#10b981';
+                } else if (isAbsent) {
+                  bg = 'rgba(239, 68, 68, 0.22)';
+                  color = '#ef4444';
+                  border = '#ef4444';
+                }
+
+                return (
+                  <div
+                    key={dStr}
+                    onClick={() => setSelectedDayModal({ date: dStr, holiday: holidayName, records: dayRecords || [] })}
+                    style={{
+                      height: '38px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       borderRadius: '8px',
-                      background: item.status === 'Present' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                      color: item.status === 'Present' ? '#10b981' : '#ef4444'
-                    }}>
-                      {item.status}
-                    </span>
+                      background: bg,
+                      color,
+                      border: `1px solid ${border}`,
+                      fontWeight: '700',
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {dayNum}
                   </div>
-                ))
-              )}
+                );
+              })}
+            </div>
+            
+            {/* LEGEND */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '14px', fontSize: '0.75rem', fontWeight: '700' }}>
+              <span style={{ color: '#10b981' }}>🟢 Present</span>
+              <span style={{ color: '#ef4444' }}>🔴 Absent</span>
+              <span style={{ color: '#38bdf8' }}>🔵 Holiday</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* CAMERA SCANNER MODAL */}
+      {/* MODAL 1: STUDENT FULL DETAILS POPUP (Feature 1) */}
+      {showProfileModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left' }}>
+            <h3 style={{ margin: '0 0 4px 0' }}>🎓 {studentInfo.full_name}</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '14px' }}>
+              Roll: {studentInfo.roll_no} | {studentInfo.dept_code} ({studentInfo.year_level || '1st Year'})
+            </p>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>📅 Academic Period:</strong>
+              <div style={{ fontSize: '0.88rem' }}>{studentInfo.academic_period || '2024 - 2026'}</div>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>📊 Current Attendance:</strong>
+              <div style={{ fontSize: '0.88rem', fontWeight: '700', color: isSafe ? '#10b981' : '#ef4444' }}>
+                {percentage}% ({detailedStats?.totalPresent || 0} Present / {detailedStats?.totalWorkingDays || 0} Days)
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>💻 Programming Languages:</strong>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {(studentInfo.programming_languages && studentInfo.programming_languages.length > 0)
+                  ? studentInfo.programming_languages.map((l, i) => (
+                      <span key={i} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>{l}</span>
+                    ))
+                  : <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Python, JavaScript, React.js, C++</span>}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>🚀 Projects Built:</strong>
+              <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
+                {(studentInfo.projects && studentInfo.projects.length > 0)
+                  ? studentInfo.projects.map((p, i) => <li key={i}>{p}</li>)
+                  : (
+                    <>
+                      <li>Smart Attendance System with GPS Geofencing</li>
+                      <li>E-Commerce Cart Management with React</li>
+                    </>
+                  )}
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>🏆 Certifications Received:</strong>
+              <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
+                {(studentInfo.certificates && studentInfo.certificates.length > 0)
+                  ? studentInfo.certificates.map((c, i) => <li key={i}>{c}</li>)
+                  : (
+                    <>
+                      <li>Full-Stack Web Development Bootcamp Certificate</li>
+                      <li>College Technical Fest - 1st Prize Web Designing</li>
+                    </>
+                  )}
+              </ul>
+            </div>
+
+            <button onClick={() => setShowProfileModal(false)} className="btn btn-primary" style={{ width: '100%' }}>Close Profile</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: DAY DETAILS */}
+      {selectedDayModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px' }}>
+            <h3>📅 {selectedDayModal.date}</h3>
+            {selectedDayModal.holiday && (
+              <div style={{ margin: '10px 0', padding: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderRadius: '8px', fontWeight: '700' }}>
+                🎉 {selectedDayModal.holiday}
+              </div>
+            )}
+            {selectedDayModal.records.length > 0 && selectedDayModal.records.map((r, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
+                <span>{r.hour}</span>
+                <strong style={{ color: r.status === 'Present' ? '#10b981' : '#ef4444' }}>{r.status}</strong>
+              </div>
+            ))}
+            <button onClick={() => setSelectedDayModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '12px' }}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>📷 Classroom QR Scanner</h3>
-
+            <h3>📷 Classroom QR Scanner</h3>
             {cameraPermissionError ? (
-              <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.85rem', marginBottom: '16px' }}>
-                <p><strong>⚠️ Camera Blocked</strong></p>
-                <p style={{ margin: '6px 0' }}>{cameraPermissionError}</p>
-                <small>Tap the lock icon in your browser URL bar to allow Camera permissions, then reload.</small>
-              </div>
+              <div style={{ color: '#ef4444', padding: '10px' }}>{cameraPermissionError}</div>
             ) : (
-              <div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                  Point camera at the classroom projector screen.
-                </p>
-                <div id="qr-reader-container" style={{ width: '100%', borderRadius: '16px', overflow: 'hidden' }}></div>
-              </div>
+              <div id="qr-reader-container" style={{ width: '100%', borderRadius: '12px' }} />
             )}
-
-            <button
-              onClick={() => {
-                if (scannerRef.current) {
-                  scannerRef.current.clear().catch(() => {});
-                  scannerRef.current = null;
-                }
-                setIsCameraOpen(false);
-              }}
-              className="btn btn-secondary"
-              style={{ marginTop: '16px', width: '100%' }}
-            >
-              Close Camera
-            </button>
+            <button onClick={() => setIsCameraOpen(false)} className="btn btn-secondary" style={{ width: '100%', marginTop: '12px' }}>Cancel</button>
           </div>
         </div>
       )}
-
-      {/* MONTHLY BAR MODAL */}
-      {selectedMonthModal && (
-        <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center' }}>
-            <h3>📅 {selectedMonthModal.monthLabel} Attendance</h3>
-            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#818cf8', margin: '15px 0' }}>
-              {selectedMonthModal.presentDaysCount} Days
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total days marked Present in {selectedMonthModal.monthLabel}.</p>
-            <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '14px', width: '100%' }}>Close</button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

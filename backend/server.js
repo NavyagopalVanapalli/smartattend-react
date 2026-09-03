@@ -692,3 +692,34 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
 });
+
+
+// 1. UPDATE EXTENDED STUDENT PROFILE (Projects, Languages, Certificates, Period)
+app.put('/api/student/extended-profile', async (req, res) => {
+  const { roll_no, academic_period, projects, programming_languages, certificates } = req.body;
+  try {
+    const updated = await Student.findOneAndUpdate(
+      { roll_no: roll_no.trim().toUpperCase() },
+      { academic_period, projects, programming_languages, certificates },
+      { new: true }
+    );
+    res.json({ success: true, student: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. UPDATE EXTENDED TEACHER PROFILE (Experience, Past Colleges, Subjects)
+app.put('/api/admin/teachers/extended-profile', async (req, res) => {
+  const { teacher_id, previous_colleges, total_experience, known_subjects, current_teaching_subjects } = req.body;
+  try {
+    const updated = await Teacher.findOneAndUpdate(
+      { teacher_id: teacher_id.trim() },
+      { previous_colleges, total_experience, known_subjects, current_teaching_subjects },
+      { new: true }
+    );
+    res.json({ success: true, teacher: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
