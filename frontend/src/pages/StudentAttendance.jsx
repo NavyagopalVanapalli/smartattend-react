@@ -52,43 +52,55 @@ export default function StudentAttendance() {
   }, []);
 
   // Initialize and clean up camera scanner safely via CDN global with flexible video constraints
+  // Initialize and clean up camera scanner safely
   useEffect(() => {
-    if (isCameraOpen && !scannerRef.current) {
+    let scannerInstance = null;
+    let isCancelled = false;
+
+    if (isCameraOpen) {
       setCameraPermissionError(null);
 
-      // Verify Browser Support & Permissions
+      // Verify browser camera support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
         return;
       }
 
-      if (!window.Html5QrcodeScanner) {
-        setCameraPermissionError("Scanner library is initializing. Please try again in a moment.");
-        return;
-      }
+      // Dynamically load the library so Vite/Rolldown bundles it cleanly
+      import('html5-qrcode')
+        .then(({ Html5QrcodeScanner }) => {
+          if (isCancelled) return;
 
-      try {
-        // Using videoConstraints with ideal facingMode prevents the mobile NotFoundError
-        const scanner = new window.Html5QrcodeScanner(
-          "qr-reader-container",
-          { 
-            fps: 10, 
-            qrbox: { width: 220, height: 220 },
-            aspectRatio: 1.0,
-            videoConstraints: {
-              facingMode: { ideal: "environment" }
-            }
-          },
-          false
-        );
-        scanner.render(onScanSuccess, onScanFailure);
-        scannerRef.current = scanner;
-      } catch (err) {
-        setCameraPermissionError("Failed to initialize camera. Ensure camera permissions are granted.");
-      }
+          try {
+            const scanner = new Html5QrcodeScanner(
+              "qr-reader-container",
+              { 
+                fps: 10, 
+                qrbox: { width: 220, height: 220 },
+                aspectRatio: 1.0,
+                videoConstraints: {
+                  facingMode: { ideal: "environment" }
+                }
+              },
+              false
+            );
+
+            scanner.render(onScanSuccess, onScanFailure);
+            scannerRef.current = scanner;
+            scannerInstance = scanner;
+          } catch (err) {
+            setCameraPermissionError("Failed to initialize camera. Check browser permissions.");
+          }
+        })
+        .catch(() => {
+          if (!isCancelled) {
+            setCameraPermissionError("Failed to load QR scanner component. Please refresh.");
+          }
+        });
     }
 
     return () => {
+      isCancelled = true;
       if (scannerRef.current) {
         scannerRef.current.clear().catch(() => {});
         scannerRef.current = null;
