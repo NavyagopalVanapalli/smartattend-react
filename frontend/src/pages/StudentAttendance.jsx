@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 
-export default function Student() {
+export default function StudentAttendance() {
   const [studentInfo, setStudentInfo] = useState(null);
   const [rollNoInput, setRollNoInput] = useState('');
   const [detailedStats, setDetailedStats] = useState(null);
@@ -52,7 +51,7 @@ export default function Student() {
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
-  // Initialize and clean up camera scanner
+  // Initialize and clean up camera scanner safely via CDN global with flexible video constraints
   useEffect(() => {
     if (isCameraOpen && !scannerRef.current) {
       setCameraPermissionError(null);
@@ -63,19 +62,30 @@ export default function Student() {
         return;
       }
 
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(() => {
-          const scanner = new Html5QrcodeScanner(
-            "qr-reader-container",
-            { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
-            false
-          );
-          scanner.render(onScanSuccess, onScanFailure);
-          scannerRef.current = scanner;
-        })
-        .catch(() => {
-          setCameraPermissionError("Camera permission denied. Please allow camera access in browser settings.");
-        });
+      if (!window.Html5QrcodeScanner) {
+        setCameraPermissionError("Scanner library is initializing. Please try again in a moment.");
+        return;
+      }
+
+      try {
+        // Using videoConstraints with ideal facingMode prevents the mobile NotFoundError
+        const scanner = new window.Html5QrcodeScanner(
+          "qr-reader-container",
+          { 
+            fps: 10, 
+            qrbox: { width: 220, height: 220 },
+            aspectRatio: 1.0,
+            videoConstraints: {
+              facingMode: { ideal: "environment" }
+            }
+          },
+          false
+        );
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+      } catch (err) {
+        setCameraPermissionError("Failed to initialize camera. Ensure camera permissions are granted.");
+      }
     }
 
     return () => {
@@ -337,7 +347,6 @@ export default function Student() {
                       </span>
                     </div>
 
-                    {/* Progress Bar Container */}
                     <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
                       <div style={{
                         width: `${subPct}%`,
@@ -492,7 +501,7 @@ export default function Student() {
         </div>
       )}
 
-      {/* CAMERA SCANNER MODAL */}
+      {/* CAMERA SCANNER MODAL WITH SAFE DEVICE FALLBACK */}
       {isCameraOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
@@ -500,7 +509,7 @@ export default function Student() {
 
             {cameraPermissionError ? (
               <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.85rem', marginBottom: '16px' }}>
-                <p><strong>⚠️ Camera Blocked</strong></p>
+                <p><strong>⚠️ Camera Issue</strong></p>
                 <p style={{ margin: '6px 0' }}>{cameraPermissionError}</p>
                 <small>Tap the lock icon in your browser URL bar to allow Camera permissions, then reload.</small>
               </div>
