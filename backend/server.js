@@ -695,30 +695,95 @@ app.listen(PORT, '0.0.0.0', () => {
 
 
 // 1. UPDATE EXTENDED STUDENT PROFILE (Projects, Languages, Certificates, Period)
-app.put('/api/student/extended-profile', async (req, res) => {
-  const { roll_no, academic_period, projects, programming_languages, certificates } = req.body;
+app.put('/api/admin/students/extended-update', async (req, res) => {
+  const { 
+    roll_no, 
+    full_name, 
+    parent_phone, 
+    dept_code, 
+    year_level, 
+    section,
+    academic_period,
+    programming_languages,
+    projects,
+    certificates 
+  } = req.body;
+
   try {
-    const updated = await Student.findOneAndUpdate(
+    const updatedStudent = await Student.findOneAndUpdate(
       { roll_no: roll_no.trim().toUpperCase() },
-      { academic_period, projects, programming_languages, certificates },
+      {
+        full_name,
+        parent_phone,
+        dept_code,
+        year_level,
+        section,
+        academic_period,
+        programming_languages: Array.isArray(programming_languages) 
+          ? programming_languages 
+          : (programming_languages || '').split(',').map(s => s.trim()).filter(Boolean),
+        projects: Array.isArray(projects) 
+          ? projects 
+          : (projects || '').split('\n').map(s => s.trim()).filter(Boolean),
+        certificates: Array.isArray(certificates) 
+          ? certificates 
+          : (certificates || '').split('\n').map(s => s.trim()).filter(Boolean)
+      },
       { new: true }
     );
-    res.json({ success: true, student: updated });
+
+    if (!updatedStudent) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    res.json({ success: true, message: 'Student details updated successfully!', student: updatedStudent });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // 2. UPDATE EXTENDED TEACHER PROFILE (Experience, Past Colleges, Subjects)
-app.put('/api/admin/teachers/extended-profile', async (req, res) => {
-  const { teacher_id, previous_colleges, total_experience, known_subjects, current_teaching_subjects } = req.body;
+// EDIT EXTENDED TEACHER DETAILS
+app.put('/api/admin/teachers/extended-update', async (req, res) => {
+  const {
+    teacher_id,
+    full_name,
+    email,
+    phone,
+    dept_code,
+    total_experience,
+    previous_colleges,
+    known_subjects,
+    current_teaching_subjects
+  } = req.body;
+
   try {
-    const updated = await Teacher.findOneAndUpdate(
+    const updatedTeacher = await Teacher.findOneAndUpdate(
       { teacher_id: teacher_id.trim() },
-      { previous_colleges, total_experience, known_subjects, current_teaching_subjects },
-      { new: true }
+      {
+        full_name,
+        email,
+        phone,
+        dept_code,
+        total_experience,
+        previous_colleges: Array.isArray(previous_colleges)
+          ? previous_colleges
+          : (previous_colleges || '').split('\n').map(s => s.trim()).filter(Boolean),
+        known_subjects: Array.isArray(known_subjects)
+          ? known_subjects
+          : (known_subjects || '').split(',').map(s => s.trim()).filter(Boolean),
+        current_teaching_subjects: Array.isArray(current_teaching_subjects)
+          ? current_teaching_subjects
+          : (current_teaching_subjects || '').split(',').map(s => s.trim()).filter(Boolean)
+      },
+      { returnDocument: 'after' }
     );
-    res.json({ success: true, teacher: updated });
+
+    if (!updatedTeacher) {
+      return res.status(404).json({ success: false, message: 'Faculty not found.' });
+    }
+
+    res.json({ success: true, message: 'Faculty details updated successfully!', teacher: updatedTeacher });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

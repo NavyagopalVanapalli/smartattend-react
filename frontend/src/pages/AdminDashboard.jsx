@@ -22,7 +22,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
 
-  // Form States
+  // Modals for Editing Extended Profiles
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editingTeacher, setEditingTeacher] = useState(null);
+
+  // Form States for Creation
   const [newStudent, setNewStudent] = useState({
     roll_no: '',
     full_name: '',
@@ -42,7 +46,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   });
 
   useEffect(() => {
-    // Verify admin authentication
     const isLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
     if (!isLoggedIn) {
       window.location.href = '/admin-login';
@@ -98,6 +101,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleSaveEditStudent = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.put('/api/admin/students/extended-update', editingStudent);
+      if (res.data.success) {
+        setMessage({ type: 'success', text: `✅ Student ${editingStudent.roll_no} updated successfully!` });
+        setEditingStudent(null);
+        fetchDashboardData();
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to update student'}` });
+    }
+  };
+
   const handleAddTeacher = async (e) => {
     e.preventDefault();
     try {
@@ -126,6 +143,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleSaveEditTeacher = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.put('/api/admin/teachers/extended-update', editingTeacher);
+      if (res.data.success) {
+        setMessage({ type: 'success', text: `✅ Faculty ${editingTeacher.teacher_id} updated successfully!` });
+        setEditingTeacher(null);
+        fetchDashboardData();
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to update faculty'}` });
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("isAdminLoggedIn");
     localStorage.removeItem("activeAdmin");
@@ -147,7 +178,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
       
-      {/* EXACT EXECUTIVE CONTROL CENTER HEADER (SCREENSHOT 433) */}
+      {/* EXECUTIVE CONTROL CENTER HEADER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -161,7 +192,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         flexWrap: 'wrap',
         gap: '14px'
       }}>
-        {/* Left branding with purple lightning icon */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
             width: '44px',
@@ -182,12 +212,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               Executive Control Center
             </h2>
             <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-              Logged in as <strong style={{ color: '#6366f1' }}>System Administrator</strong>
+              Logged in as <strong style={{ color: '#6366f1' }}>System Administrator</strong>[cite: 8]
             </span>
           </div>
         </div>
 
-        {/* Right header action buttons */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={() => window.location.href = '/'}
@@ -290,7 +319,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* DIRECTORY NAVIGATION TABS */}
+      {/* TABS */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
         <button
           onClick={() => setActiveTab('students')}
@@ -302,8 +331,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             border: 'none',
             cursor: 'pointer',
             background: activeTab === 'students' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'students' ? '#ffffff' : 'var(--text-muted)',
-            transition: 'all 0.2s ease'
+            color: activeTab === 'students' ? '#ffffff' : 'var(--text-muted)'
           }}
         >
           👨‍🎓 Students Directory
@@ -318,15 +346,14 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             border: 'none',
             cursor: 'pointer',
             background: activeTab === 'faculty' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'faculty' ? '#ffffff' : 'var(--text-muted)',
-            transition: 'all 0.2s ease'
+            color: activeTab === 'faculty' ? '#ffffff' : 'var(--text-muted)'
           }}
         >
           👨‍🏫 Faculty Directory
         </button>
       </div>
 
-      {/* ============================== TAB 1: STUDENTS DIRECTORY ============================== */}
+      {/* STUDENTS DIRECTORY TAB */}
       {activeTab === 'students' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -386,13 +413,27 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                       <td style={{ padding: '12px' }}>{s.year_level} - {s.section}</td>
                       <td style={{ padding: '12px' }}>{s.parent_phone}</td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)}
-                          className="btn btn-secondary"
-                          style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => setEditingStudent({
+                              ...s,
+                              programming_languages: Array.isArray(s.programming_languages) ? s.programming_languages.join(', ') : (s.programming_languages || ''),
+                              projects: Array.isArray(s.projects) ? s.projects.join('\n') : (s.projects || ''),
+                              certificates: Array.isArray(s.certificates) ? s.certificates.join('\n') : (s.certificates || '')
+                            })}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -403,7 +444,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* ============================== TAB 2: FACULTY DIRECTORY ============================== */}
+      {/* FACULTY DIRECTORY TAB */}
       {activeTab === 'faculty' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -463,13 +504,27 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                       <td style={{ padding: '12px' }}>{t.email}</td>
                       <td style={{ padding: '12px' }}>{t.phone || 'Not Registered'}</td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDeleteTeacher(t.teacher_id)}
-                          className="btn btn-secondary"
-                          style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => setEditingTeacher({
+                              ...t,
+                              previous_colleges: Array.isArray(t.previous_colleges) ? t.previous_colleges.join('\n') : (t.previous_colleges || ''),
+                              known_subjects: Array.isArray(t.known_subjects) ? t.known_subjects.join(', ') : (t.known_subjects || ''),
+                              current_teaching_subjects: Array.isArray(t.current_teaching_subjects) ? t.current_teaching_subjects.join(', ') : (t.current_teaching_subjects || '')
+                            })}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTeacher(t.teacher_id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -480,9 +535,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* ============================== MODALS ============================== */}
-
-      {/* 1. STUDENT EXTENDED PROFILE MODAL */}
+      {/* VIEW STUDENT DETAILS MODAL */}
       {viewingStudentModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '460px', textAlign: 'left' }}>
@@ -548,7 +601,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* 2. FACULTY EXTENDED PROFILE MODAL */}
+      {/* VIEW TEACHER DETAILS MODAL */}
       {viewingTeacherModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '460px', textAlign: 'left' }}>
@@ -617,7 +670,262 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* 3. ADD STUDENT MODAL */}
+      {/* EDIT STUDENT DETAILS MODAL */}
+      {editingStudent && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>✏️ Edit Student Details</h3>
+              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditStudent}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
+                  <input
+                    type="text"
+                    value={editingStudent.roll_no}
+                    disabled
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    value={editingStudent.full_name}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                  <select
+                    value={editingStudent.dept_code}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, dept_code: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="MCA">MCA</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
+                  <select
+                    value={editingStudent.year_level}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, year_level: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📅 Academic Period</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2024 - 2026"
+                    value={editingStudent.academic_period || ''}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, academic_period: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    value={editingStudent.parent_phone || ''}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, parent_phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>💻 Programming Languages (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Python, React.js, JavaScript, Java"
+                  value={editingStudent.programming_languages || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, programming_languages: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🚀 Projects Built (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each project on a new line"
+                  value={editingStudent.projects || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, projects: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏆 Certificates Received (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each certificate on a new line"
+                  value={editingStudent.certificates || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, certificates: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
+                  Save Student Changes
+                </button>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT FACULTY DETAILS MODAL */}
+      {editingTeacher && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>✏️ Edit Faculty Details</h3>
+              <button onClick={() => setEditingTeacher(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditTeacher}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.teacher_id}
+                    disabled
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.full_name}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                  <select
+                    value={editingTeacher.dept_code}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, dept_code: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="MCA">MCA</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Total Experience</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 6+ Years"
+                    value={editingTeacher.total_experience || ''}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, total_experience: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email Address</label>
+                  <input
+                    type="email"
+                    value={editingTeacher.email}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, email: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.phone || ''}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏛️ Previous Colleges Taught (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each college on a new line"
+                  value={editingTeacher.previous_colleges || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, previous_colleges: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📖 Known Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Python, DBMS, Operating Systems, Cloud Computing"
+                  value={editingTeacher.known_subjects || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, known_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏫 Currently Teaching Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Web Development, Database Lab"
+                  value={editingTeacher.current_teaching_subjects || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, current_teaching_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
+                  Save Faculty Changes
+                </button>
+                <button type="button" onClick={() => setEditingTeacher(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD STUDENT MODAL */}
       {showAddStudentModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left' }}>
@@ -634,7 +942,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   required
                 />
               </div>
-
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
                 <input
@@ -646,7 +953,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   required
                 />
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
@@ -675,9 +981,8 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   </select>
                 </div>
               </div>
-
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent Phone (WhatsApp)</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
                 <input
                   type="text"
                   placeholder="e.g. 9876543210"
@@ -686,7 +991,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   style={{ width: '100%', padding: '10px' }}
                 />
               </div>
-
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Student</button>
                 <button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
@@ -696,7 +1000,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* 4. ADD FACULTY MODAL */}
+      {/* ADD FACULTY MODAL */}
       {showAddTeacherModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left' }}>
@@ -713,7 +1017,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   required
                 />
               </div>
-
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
                 <input
@@ -725,7 +1028,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   required
                 />
               </div>
-
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
                 <input
@@ -737,7 +1039,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   required
                 />
               </div>
-
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
                 <input
@@ -748,7 +1049,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                   style={{ width: '100%', padding: '10px' }}
                 />
               </div>
-
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Faculty</button>
                 <button type="button" onClick={() => setShowAddTeacherModal(false)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
