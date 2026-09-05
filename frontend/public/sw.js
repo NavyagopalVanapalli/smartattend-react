@@ -1,11 +1,8 @@
-const CACHE_NAME = 'smartattend-cache-v1';
+const CACHE_NAME = 'smartattend-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/index.css'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -24,20 +21,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Cache-First for static assets, Network-First for API calls with offline fallback
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const resClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, resClone));
-          return response;
-        })
-        .catch(() => caches.match(request))
+      fetch(request).catch(() => caches.match(request))
     );
   } else {
     event.respondWith(
