@@ -22,8 +22,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
-app.use(express.json());
-
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Serving frontend build files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
@@ -898,6 +898,30 @@ app.delete('/api/resources/:id', async (req, res) => {
   try {
     await Resource.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Resource removed.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/resources/create', async (req, res) => {
+  try {
+    const { subject, dept, year, docType, title, fileUrl, fileName, size, uploadedBy } = req.body;
+    if (!subject || !title || !fileUrl) {
+      return res.status(400).json({ success: false, message: 'Subject, Title, and File are required.' });
+    }
+
+    const newRes = await Resource.create({
+      subject,
+      dept: dept || 'MCA',
+      year: year || '1st Year',
+      docType: docType || 'Lecture Notes',
+      title,
+      fileUrl,
+      size: size || 'Local Document',
+      uploadedBy: uploadedBy || 'Faculty'
+    });
+
+    res.json({ success: true, message: 'Resource published successfully!', resource: newRes });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
