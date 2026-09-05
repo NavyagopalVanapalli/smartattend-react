@@ -12,6 +12,7 @@ const Teacher = require('./models/Teacher');
 const Student = require('./models/Student');
 const Attendance = require('./models/Attendance');
 const Admin = require('./models/Admin');
+const LeaveRequest = require('./models/LeaveRequest');
 
 const app = express();
 
@@ -784,6 +785,83 @@ app.put('/api/admin/teachers/extended-update', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Faculty details updated successfully!', teacher: updatedTeacher });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// 1. Submit OD / Medical Leave Request
+app.post('/api/leaves/apply', async (req, res) => {
+  try {
+    const { roll_no, student_name, dept_code, leave_type, from_date, to_date, reason } = req.body;
+    if (!roll_no || !from_date || !to_date || !reason) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+
+    const leave = await LeaveRequest.create({
+      roll_no: roll_no.toUpperCase(),
+      student_name,
+      dept_code,
+      leave_type,
+      from_date,
+      to_date,
+      reason
+    });
+
+    res.json({ success: true, message: 'Leave application submitted successfully!', leave });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Student: View Personal Leave History
+app.get('/api/leaves/student', async (req, res) => {
+  try {
+    const { roll_no } = req.query;
+    if (!roll_no) return res.status(400).json({ success: false, message: 'Roll number required.' });
+
+    const leaves = await LeaveRequest.find({ roll_no: roll_no.toUpperCase() }).sort({ createdAt: -1 });
+    res.json({ success: true, leaves });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Admin: View All Applications
+app.get('/api/admin/leaves', async (req, res) => {
+  try {
+    const leaves = await LeaveRequest.find().sort({ createdAt: -1 });
+    res.json({ success: true, leaves });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Admin: Approve or Reject Application & Auto-Update Attendance
+app.put('/api/admin/leaves/review', async (req, res) => {
+  try {
+    const { leaveId, status, reviewed_by } = req.body;
+    const leave = await LeaveRequest.findById(leaveId);
+    if (!leave) return res.status(404).json({ success: false, message: 'Application not found.' });
+
+    leave.status = status;
+    leave.reviewed_by = reviewed_by || 'Admin';
+    await leave.save();
+
+    // If Approved, convert marked absences within the date window to 'Present' (OD / Medical Credit)
+    if (status === 'Approved') {
+      await Attendance.updateMany(
+        {
+          roll_no: leave.roll_no,
+          date: { $gte: leave.from_date, $lte: leave.to_date },
+          status: 'Absent'
+        },
+        { status: 'Present', sms_status: `Excused: ${leave.leave_type}` }
+      );
+    }
+
+    res.json({ success: true, message: `Application ${status.toLowerCase()} successfully!`, leave });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

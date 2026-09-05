@@ -26,6 +26,30 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
 
+  const [leaveRequests, setLeaveRequests] = useState([]);
+
+
+  const fetchLeaves = async () => {
+  try {
+    const res = await axios.get('/api/admin/leaves');
+    if (res.data.success) setLeaveRequests(res.data.leaves);
+  } catch (err) {
+    console.error('Error fetching admin leaves:', err);
+  }
+};
+
+const handleReviewLeave = async (leaveId, status) => {
+  try {
+    const res = await axios.put('/api/admin/leaves/review', { leaveId, status });
+    if (res.data.success) {
+      setMessage({ type: 'success', text: `Application ${status.toLowerCase()} successfully!` });
+      fetchLeaves();
+      fetchDashboardData();
+    }
+  } catch (err) {
+    setMessage({ type: 'error', text: 'Error updating leave application.' });
+  }
+};
   // Form States for Creation
   const [newStudent, setNewStudent] = useState({
     roll_no: '',
@@ -174,6 +198,67 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     t.teacher_id.toLowerCase().includes(teacherSearch.toLowerCase()) ||
     t.dept_code.toLowerCase().includes(teacherSearch.toLowerCase())
   );
+
+  {activeTab === 'leaves' && (
+  <div className="card" style={{ padding: '24px' }}>
+    <h3 style={{ margin: '0 0 16px 0' }}>OD & Medical Leave Requests</h3>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+            <th style={{ padding: '12px' }}>Roll No</th>
+            <th style={{ padding: '12px' }}>Student</th>
+            <th style={{ padding: '12px' }}>Type</th>
+            <th style={{ padding: '12px' }}>Duration</th>
+            <th style={{ padding: '12px' }}>Reason</th>
+            <th style={{ padding: '12px' }}>Status</th>
+            <th style={{ padding: '12px', textAlign: 'center' }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaveRequests.length === 0 ? (
+            <tr><td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No leave requests pending.</td></tr>
+          ) : (
+            leaveRequests.map((req) => (
+              <tr key={req._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                <td style={{ padding: '12px', fontWeight: '700' }}>{req.roll_no}</td>
+                <td style={{ padding: '12px' }}>{req.student_name} ({req.dept_code})</td>
+                <td style={{ padding: '12px' }}>{req.leave_type}</td>
+                <td style={{ padding: '12px' }}>{req.from_date} to {req.to_date}</td>
+                <td style={{ padding: '12px' }}>{req.reason}</td>
+                <td style={{ padding: '12px' }}>
+                  <span style={{
+                    fontWeight: '700',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: req.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : req.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: req.status === 'Approved' ? '#10b981' : req.status === 'Rejected' ? '#ef4444' : '#f59e0b'
+                  }}>
+                    {req.status}
+                  </span>
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
+                  {req.status === 'Pending' ? (
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      <button onClick={() => handleReviewLeave(req._id, 'Approved')} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                        Approve
+                      </button>
+                      <button onClick={() => handleReviewLeave(req._id, 'Rejected')} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reviewed</span>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
@@ -352,6 +437,22 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           👨‍🏫 Faculty Directory
         </button>
       </div>
+
+      <button
+  onClick={() => { setActiveTab('leaves'); fetchLeaves(); }}
+  style={{
+    padding: '10px 20px',
+    borderRadius: '12px',
+    fontSize: '0.9rem',
+    fontWeight: '700',
+    border: 'none',
+    cursor: 'pointer',
+    background: activeTab === 'leaves' ? 'var(--primary)' : 'transparent',
+    color: activeTab === 'leaves' ? '#ffffff' : 'var(--text-muted)'
+  }}
+>
+  📄 OD & Leave Approvals
+</button>
 
       {/* STUDENTS DIRECTORY TAB */}
       {activeTab === 'students' && (
