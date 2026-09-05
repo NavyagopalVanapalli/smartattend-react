@@ -683,17 +683,6 @@ app.post('/api/verify-otp-reset-password', async (req, res) => {
   }
 });
 
-// CATCH-ALL ROUTE (Must stay right above app.listen)
-app.get('/{*splat}', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
-
-// START SERVER
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
-});
-
 
 // 1. UPDATE EXTENDED STUDENT PROFILE (Projects, Languages, Certificates, Period)
 app.put('/api/admin/students/extended-update', async (req, res) => {
@@ -865,4 +854,17 @@ app.put('/api/admin/leaves/review', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+
+// CATCH-ALL ROUTE (Must stay right above app.listen)
+app.get('/{*splat}', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
+
+// START SERVER
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Attendance Backend Server running on port ${PORT}`);
 });

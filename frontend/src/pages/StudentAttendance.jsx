@@ -20,19 +20,20 @@ export default function StudentAttendance() {
   const [cameraPermissionError, setCameraPermissionError] = useState(null);
   const scannerRef = useRef(null);
 
+  // Leave & OD States
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-const [leaveHistory, setLeaveHistory] = useState([]);
-const [leaveForm, setLeaveForm] = useState({
-  leave_type: 'OD',
-  from_date: '',
-  to_date: '',
-  reason: ''
-});
+  const [leaveHistory, setLeaveHistory] = useState([]);
+  const [leaveForm, setLeaveForm] = useState({
+    leave_type: 'OD',
+    from_date: '',
+    to_date: '',
+    reason: ''
+  });
+
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    // 1. One-time login reset check
     const RESET_KEY = "reset_student_logins_v2";
     if (!localStorage.getItem(RESET_KEY)) {
       localStorage.clear();
@@ -49,7 +50,6 @@ const [leaveForm, setLeaveForm] = useState({
       }
     }
 
-    // 2. PWA Install Listener
     const handleBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -59,22 +59,18 @@ const [leaveForm, setLeaveForm] = useState({
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
-  // Initialize and clean up camera scanner safely via CDN global with flexible video constraints
-  // Initialize and clean up camera scanner safely
+  // Dynamically load scanner to prevent bundler errors
   useEffect(() => {
-    let scannerInstance = null;
     let isCancelled = false;
 
     if (isCameraOpen) {
       setCameraPermissionError(null);
 
-      // Verify browser camera support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setCameraPermissionError("Camera access requires HTTPS or is unsupported on this browser.");
         return;
       }
 
-      // Dynamically load the library so Vite/Rolldown bundles it cleanly
       import('html5-qrcode')
         .then(({ Html5QrcodeScanner }) => {
           if (isCancelled) return;
@@ -95,7 +91,6 @@ const [leaveForm, setLeaveForm] = useState({
 
             scanner.render(onScanSuccess, onScanFailure);
             scannerRef.current = scanner;
-            scannerInstance = scanner;
           } catch (err) {
             setCameraPermissionError("Failed to initialize camera. Check browser permissions.");
           }
@@ -124,6 +119,37 @@ const [leaveForm, setLeaveForm] = useState({
       }
     } catch (err) {
       console.error("Error loading student stats:", err);
+    }
+  };
+
+  const fetchLeaveHistory = async () => {
+    if (!studentInfo) return;
+    try {
+      const res = await axios.get(`/api/leaves/student?roll_no=${studentInfo.roll_no}`);
+      if (res.data && res.data.success) {
+        setLeaveHistory(res.data.leaves);
+      }
+    } catch (err) {
+      console.error('Error fetching leaves:', err);
+    }
+  };
+
+  const handleApplyLeave = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('/api/leaves/apply', {
+        roll_no: studentInfo.roll_no,
+        student_name: studentInfo.full_name,
+        dept_code: studentInfo.dept_code,
+        ...leaveForm
+      });
+      if (res.data.success) {
+        alert('Application submitted successfully!');
+        setLeaveForm({ leave_type: 'OD', from_date: '', to_date: '', reason: '' });
+        fetchLeaveHistory();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error submitting application');
     }
   };
 
@@ -222,7 +248,6 @@ const [leaveForm, setLeaveForm] = useState({
   const isSafe = percentage >= 75;
   const isWarning = percentage >= 65 && percentage < 75;
 
-  // Filter Attendance History by Date Range & Search Text
   const filteredHistory = (detailedStats?.recentHistory || []).filter(item => {
     const matchesSearch = item.date.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
       item.hour.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
@@ -247,7 +272,7 @@ const [leaveForm, setLeaveForm] = useState({
       return true;
     }
 
-    return true; // 'ALL'
+    return true;
   });
 
   return (
@@ -332,6 +357,15 @@ const [leaveForm, setLeaveForm] = useState({
             </div>
           </div>
 
+          {/* LEAVE APPLY TRIGGER BUTTON */}
+          <button
+            onClick={() => { setShowLeaveModal(true); fetchLeaveHistory(); }}
+            className="btn btn-secondary"
+            style={{ width: '100%', marginBottom: '16px', padding: '12px', borderRadius: '12px', fontWeight: '700', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+          >
+            📄 Apply for OD / Medical Leave
+          </button>
+
           {/* SCANNER ACTION */}
           <div className="card" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center' }}>
             <button
@@ -407,14 +441,13 @@ const [leaveForm, setLeaveForm] = useState({
             </div>
           </div>
 
-          {/* RECENT ATTENDANCE HISTORY LOG WITH DATE RANGE FILTERS */}
+          {/* ATTENDANCE HISTORY LOG */}
           <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem' }}>🕒 Attendance Activity Log</h4>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
             </div>
 
-            {/* QUICK DATE RANGE TABS */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
               {[
                 { label: 'All', value: 'ALL' },
@@ -442,7 +475,6 @@ const [leaveForm, setLeaveForm] = useState({
               ))}
             </div>
 
-            {/* CUSTOM DATE RANGE PICKER INPUTS */}
             {dateRangeFilter === 'CUSTOM' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                 <div>
@@ -466,7 +498,6 @@ const [leaveForm, setLeaveForm] = useState({
               </div>
             )}
 
-            {/* SEARCH INPUT */}
             <div style={{ marginBottom: '12px' }}>
               <input
                 type="text"
@@ -484,7 +515,6 @@ const [leaveForm, setLeaveForm] = useState({
               />
             </div>
 
-            {/* FILTERED LIST */}
             <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
               {filteredHistory.length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0' }}>
@@ -521,7 +551,7 @@ const [leaveForm, setLeaveForm] = useState({
         </div>
       )}
 
-      {/* CAMERA SCANNER MODAL WITH SAFE DEVICE FALLBACK */}
+      {/* CAMERA SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
@@ -573,136 +603,98 @@ const [leaveForm, setLeaveForm] = useState({
         </div>
       )}
 
-      <button
-  onClick={() => { setShowLeaveModal(true); fetchLeaveHistory(); }}
-  className="btn btn-secondary"
-  style={{ width: '100%', marginBottom: '16px', padding: '10px', borderRadius: '12px', fontWeight: '700' }}
->
-  📄 Apply for OD / Medical Leave
-</button>
+      {/* OD & MEDICAL LEAVE MODAL */}
+      {showLeaveModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '440px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0 }}>📄 OD & Medical Portal</h3>
+              <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleApplyLeave} style={{ marginBottom: '18px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Request Type</label>
+                <select
+                  value={leaveForm.leave_type}
+                  onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
+                  style={{ width: '100%', padding: '8px' }}
+                >
+                  <option value="OD">On-Duty (OD) Event / Fest</option>
+                  <option value="Medical">Medical Leave</option>
+                  <option value="Personal">Personal Leave</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>From Date</label>
+                  <input
+                    type="date"
+                    value={leaveForm.from_date}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, from_date: e.target.value })}
+                    style={{ width: '100%', padding: '8px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>To Date</label>
+                  <input
+                    type="date"
+                    value={leaveForm.to_date}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, to_date: e.target.value })}
+                    style={{ width: '100%', padding: '8px' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Reason / Description</label>
+                <textarea
+                  rows="2"
+                  value={leaveForm.reason}
+                  onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                  placeholder="e.g. Technical paper presentation or illness"
+                  style={{ width: '100%', padding: '8px', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '10px', fontWeight: '700' }}>
+                Submit Leave Request
+              </button>
+            </form>
+
+            <h4 style={{ margin: '14px 0 8px 0', fontSize: '0.9rem' }}>Recent Applications</h4>
+            <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+              {leaveHistory.length === 0 ? (
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No previous requests found.</p>
+              ) : (
+                leaveHistory.map((item) => (
+                  <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.8rem' }}>
+                    <div>
+                      <strong>{item.leave_type}</strong> ({item.from_date} to {item.to_date})
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.reason}</div>
+                    </div>
+                    <span style={{
+                      fontWeight: '700',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      height: 'fit-content',
+                      background: item.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : item.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                      color: item.status === 'Approved' ? '#10b981' : item.status === 'Rejected' ? '#ef4444' : '#f59e0b'
+                    }}>
+                      {item.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
 }
-
-
-const fetchLeaveHistory = async () => {
-  if (!studentInfo) return;
-  try {
-    const res = await axios.get(`/api/leaves/student?roll_no=${studentInfo.roll_no}`);
-    if (res.data.success) setLeaveHistory(res.data.leaves);
-  } catch (err) {
-    console.error('Error fetching leaves:', err);
-  }
-};
-
-const handleApplyLeave = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await axios.post('/api/leaves/apply', {
-      roll_no: studentInfo.roll_no,
-      student_name: studentInfo.full_name,
-      dept_code: studentInfo.dept_code,
-      ...leaveForm
-    });
-    if (res.data.success) {
-      alert('Application submitted successfully!');
-      setLeaveForm({ leave_type: 'OD', from_date: '', to_date: '', reason: '' });
-      fetchLeaveHistory();
-    }
-  } catch (err) {
-    alert(err.response?.data?.message || 'Error submitting application');
-  }
-};
-
-
-{showLeaveModal && (
-  <div className="modal-overlay">
-    <div className="modal-card" style={{ maxWidth: '440px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h3 style={{ margin: 0 }}>📄 OD & Medical Portal</h3>
-        <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
-      </div>
-
-      <form onSubmit={handleApplyLeave} style={{ marginBottom: '18px' }}>
-        <div style={{ marginBottom: '10px' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Request Type</label>
-          <select
-            value={leaveForm.leave_type}
-            onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
-            style={{ width: '100%', padding: '8px' }}
-          >
-            <option value="OD">On-Duty (OD) Event / Fest</option>
-            <option value="Medical">Medical Leave</option>
-            <option value="Personal">Personal Leave</option>
-          </select>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>From Date</label>
-            <input
-              type="date"
-              value={leaveForm.from_date}
-              onChange={(e) => setLeaveForm({ ...leaveForm, from_date: e.target.value })}
-              style={{ width: '100%', padding: '8px' }}
-              required
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>To Date</label>
-            <input
-              type="date"
-              value={leaveForm.to_date}
-              onChange={(e) => setLeaveForm({ ...leaveForm, to_date: e.target.value })}
-              style={{ width: '100%', padding: '8px' }}
-              required
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Reason / Description</label>
-          <textarea
-            rows="2"
-            value={leaveForm.reason}
-            onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
-            placeholder="e.g. Hackathon participation at JNTU"
-            style={{ width: '100%', padding: '8px', fontSize: '0.85rem' }}
-            required
-          />
-        </div>
-
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '10px' }}>
-          Submit Leave Request
-        </button>
-      </form>
-
-      <h4 style={{ margin: '14px 0 8px 0', fontSize: '0.9rem' }}>Recent Applications</h4>
-      <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
-        {leaveHistory.length === 0 ? (
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No previous requests found.</p>
-        ) : (
-          leaveHistory.map((item) => (
-            <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.8rem' }}>
-              <div>
-                <strong>{item.leave_type}</strong> ({item.from_date} to {item.to_date})
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.reason}</div>
-              </div>
-              <span style={{
-                fontWeight: '700',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                height: 'fit-content',
-                background: item.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : item.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                color: item.status === 'Approved' ? '#10b981' : item.status === 'Rejected' ? '#ef4444' : '#f59e0b'
-              }}>
-                {item.status}
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  </div>
-)}
