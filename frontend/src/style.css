@@ -288,3 +288,25 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
   font-weight: 600;
   font-size: 0.9rem;
 }
+
+/* BOTTOM-LEFT FLOATING TOAST ANIMATION */
+.toast-bottom-left {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 99999;
+  animation: slideInBottomLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-width: 420px;
+  width: calc(100vw - 48px);
+}
+
+@keyframes slideInBottomLeft {
+  from {
+    transform: translateY(100px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

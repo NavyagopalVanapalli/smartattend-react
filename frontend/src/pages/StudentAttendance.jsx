@@ -123,14 +123,14 @@ export default function StudentAttendance() {
   };
 
   const fetchLeaveHistory = async () => {
-    if (!studentInfo) return;
+    if (!studentInfo?.roll_no) return;
     try {
       const res = await axios.get(`/api/leaves/student?roll_no=${studentInfo.roll_no}`);
       if (res.data && res.data.success) {
         setLeaveHistory(res.data.leaves);
       }
     } catch (err) {
-      console.error('Error fetching leaves:', err);
+      console.error('Error fetching live leaves:', err);
     }
   };
 
@@ -274,6 +274,18 @@ export default function StudentAttendance() {
 
     return true;
   });
+
+  // Live Background Polling for OD / Leave Approvals & Statistics (every 10 seconds)
+  useEffect(() => {
+    if (!studentInfo?.roll_no) return;
+
+    const pollInterval = setInterval(() => {
+      fetchLeaveHistory();
+      fetchDetailedStats(studentInfo.roll_no);
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [studentInfo]);
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '20px 16px', minHeight: '100vh' }}>
@@ -679,13 +691,15 @@ export default function StudentAttendance() {
                     </div>
                     <span style={{
                       fontWeight: '700',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
+                      padding: '3px 9px',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
                       height: 'fit-content',
                       background: item.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : item.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                      color: item.status === 'Approved' ? '#10b981' : item.status === 'Rejected' ? '#ef4444' : '#f59e0b'
+                      color: item.status === 'Approved' ? '#10b981' : item.status === 'Rejected' ? '#ef4444' : '#f59e0b',
+                      border: `1px solid ${item.status === 'Approved' ? 'rgba(16, 185, 129, 0.4)' : item.status === 'Rejected' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
                     }}>
-                      {item.status}
+                      {item.status === 'Pending' ? '⏳ In Review' : item.status === 'Approved' ? '✅ Approved' : '❌ Rejected'}
                     </span>
                   </div>
                 ))

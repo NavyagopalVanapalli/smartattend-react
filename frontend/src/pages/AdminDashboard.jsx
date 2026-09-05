@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function AdminDashboard({ darkMode, setDarkMode }) {
-  // Navigation & Data States
   const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty' | 'leaves'
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -11,23 +10,18 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Search Filters
   const [studentSearch, setStudentSearch] = useState('');
   const [teacherSearch, setTeacherSearch] = useState('');
 
-  // Modals for Viewing Extended Profiles
   const [viewingStudentModal, setViewingStudentModal] = useState(null);
   const [viewingTeacherModal, setViewingTeacherModal] = useState(null);
 
-  // Modals for Adding New Records
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
 
-  // Modals for Editing Extended Profiles
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
 
-  // Form States for Creation
   const [newStudent, setNewStudent] = useState({
     roll_no: '',
     full_name: '',
@@ -54,6 +48,16 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       fetchDashboardData();
     }
   }, []);
+
+  // Auto-dismiss floating toast notification after 4 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -103,13 +107,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.post('/api/admin/students', newStudent);
       if (res.data.success) {
-        setMessage({ type: 'success', text: '✅ Student added successfully!' });
+        setMessage({ type: 'success', text: 'Student added successfully!' });
         setShowAddStudentModal(false);
         setNewStudent({ roll_no: '', full_name: '', parent_phone: '', dept_code: 'MCA', year_level: '1st Year', section: 'Sec A' });
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to add student'}` });
+      setMessage({ type: 'error', text: `${err.response?.data?.message || 'Failed to add student'}` });
     }
   };
 
@@ -118,11 +122,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.delete(`/api/students/delete?roll_no=${rollNo}&dept_code=${deptCode}`);
       if (res.data.success) {
-        setMessage({ type: 'success', text: '🗑️ Student deleted successfully' });
+        setMessage({ type: 'success', text: 'Student deleted successfully' });
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: '❌ Failed to delete student' });
+      setMessage({ type: 'error', text: 'Failed to delete student' });
     }
   };
 
@@ -131,12 +135,12 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.put('/api/admin/students/extended-update', editingStudent);
       if (res.data.success) {
-        setMessage({ type: 'success', text: `✅ Student ${editingStudent.roll_no} updated successfully!` });
+        setMessage({ type: 'success', text: `Student ${editingStudent.roll_no} updated successfully!` });
         setEditingStudent(null);
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to update student'}` });
+      setMessage({ type: 'error', text: `${err.response?.data?.message || 'Failed to update student'}` });
     }
   };
 
@@ -145,13 +149,13 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.post('/api/admin/teachers', newTeacher);
       if (res.data.success) {
-        setMessage({ type: 'success', text: '✅ Faculty added successfully!' });
+        setMessage({ type: 'success', text: 'Faculty added successfully!' });
         setShowAddTeacherModal(false);
         setNewTeacher({ teacher_id: '', full_name: '', email: '', phone: '', dept_code: 'MCA', password_hash: 'admin123' });
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to add faculty'}` });
+      setMessage({ type: 'error', text: `${err.response?.data?.message || 'Failed to add faculty'}` });
     }
   };
 
@@ -160,11 +164,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.delete(`/api/admin/teachers/delete?teacher_id=${teacherId}`);
       if (res.data.success) {
-        setMessage({ type: 'success', text: '🗑️ Faculty removed successfully' });
+        setMessage({ type: 'success', text: 'Faculty removed successfully' });
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: '❌ Failed to remove faculty' });
+      setMessage({ type: 'error', text: 'Failed to remove faculty' });
     }
   };
 
@@ -173,12 +177,12 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.put('/api/admin/teachers/extended-update', editingTeacher);
       if (res.data.success) {
-        setMessage({ type: 'success', text: `✅ Faculty ${editingTeacher.teacher_id} updated successfully!` });
+        setMessage({ type: 'success', text: `Faculty ${editingTeacher.teacher_id} updated successfully!` });
         setEditingTeacher(null);
         fetchDashboardData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: `❌ ${err.response?.data?.message || 'Failed to update faculty'}` });
+      setMessage({ type: 'error', text: `${err.response?.data?.message || 'Failed to update faculty'}` });
     }
   };
 
@@ -295,23 +299,58 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* NOTIFICATION BANNER */}
+      {/* FLOATING TOAST NOTIFICATION (BOTTOM-LEFT CORNER) */}
       {message && (
-        <div style={{
-          padding: '12px 18px',
-          borderRadius: '12px',
-          marginBottom: '20px',
-          fontWeight: '600',
-          fontSize: '0.88rem',
-          background: message.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          color: message.type === 'success' ? '#10b981' : '#ef4444',
-          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+        <div className="toast-bottom-left" style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '24px',
+          zIndex: 99999,
+          maxWidth: '420px',
+          width: 'calc(100vw - 48px)'
         }}>
-          <span>{message.text}</span>
-          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: '800' }}>✕</button>
+          <div
+            style={{
+              padding: '14px 20px',
+              borderRadius: '16px',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              background: message.type === 'success' 
+                ? (darkMode ? 'rgba(16, 185, 129, 0.25)' : '#10b981')
+                : (darkMode ? 'rgba(239, 68, 68, 0.25)' : '#ef4444'),
+              color: '#ffffff',
+              border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.35)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.2rem' }}>
+                {message.type === 'success' ? '⚡' : '⚠️'}
+              </span>
+              <span>{message.text}</span>
+            </div>
+            <button
+              onClick={() => setMessage(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#ffffff',
+                fontWeight: '800',
+                fontSize: '1rem',
+                padding: '2px 6px',
+                opacity: 0.85
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -627,8 +666,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           </div>
         </div>
       )}
-
-      {/* ==================== MODALS ==================== */}
 
       {/* VIEW STUDENT DETAILS MODAL */}
       {viewingStudentModal && (
