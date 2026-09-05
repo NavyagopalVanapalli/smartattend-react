@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const SUBJECT_RESOURCES = [
+const INITIAL_RESOURCES = [
   {
-    id: 1,
+    _id: 'preset_1',
     subject: 'Database Management Systems (DBMS)',
     dept: 'MCA',
     year: '1st Year',
@@ -13,7 +14,7 @@ const SUBJECT_RESOURCES = [
     size: '2.4 MB'
   },
   {
-    id: 2,
+    _id: 'preset_2',
     subject: 'Full-Stack Web Development',
     dept: 'MCA',
     year: '1st Year',
@@ -21,26 +22,6 @@ const SUBJECT_RESOURCES = [
     title: 'React.js, REST APIs & MongoDB Integration Guide',
     fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
     size: '3.1 MB'
-  },
-  {
-    id: 3,
-    subject: 'Data Structures & Algorithms',
-    dept: 'CSE',
-    year: '2nd Year',
-    docType: 'Syllabus & Notes',
-    title: 'Trees, Graphs & Dynamic Programming Handbook',
-    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    size: '4.8 MB'
-  },
-  {
-    id: 4,
-    subject: 'Cloud Computing & DevOps',
-    dept: 'IT',
-    year: '3rd Year',
-    docType: 'Cheat Sheet',
-    title: 'AWS Core Services, Docker & CI/CD Pipelines',
-    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    size: '1.9 MB'
   }
 ];
 
@@ -50,7 +31,7 @@ const CAMPUS_EVENTS = [
     type: 'Placement Drive',
     title: 'TCS Digital & Ninja On-Campus Recruitment',
     date: 'Sep 18, 2026',
-    venue: 'Main Auditorium & Online Assessment Labs',
+    venue: 'Main Auditorium & Assessment Labs',
     eligible: 'Final Year MCA / B.Tech (CSE, IT, ECE)',
     badgeColor: '#10b981',
     description: 'Aptitude followed by coding evaluation in Java/Python. Package ranges up to 7.5 LPA.'
@@ -74,16 +55,6 @@ const CAMPUS_EVENTS = [
     eligible: 'Teams of 2 to 4 members',
     badgeColor: '#f59e0b',
     description: 'Solve real-world problem statements submitted by industry partners within 24 hours.'
-  },
-  {
-    id: 4,
-    type: 'College Festival',
-    title: 'Vibrance 2026: Annual Techno-Cultural Fest',
-    date: 'Oct 28 - 29, 2026',
-    venue: 'Campus Open Air Theatre (OAT)',
-    eligible: 'All Students & Faculty',
-    badgeColor: '#ec4899',
-    description: 'Two days of technical paper presentations, LAN gaming tournaments, music concerts, and art competitions.'
   }
 ];
 
@@ -112,13 +83,13 @@ const QUIZ_BANKS = {
         q: 'What hook is used to execute side effects in functional React components?',
         options: ['useState', 'useEffect', 'useMemo', 'useReducer'],
         correct: 1,
-        explanation: 'useEffect is specifically designed for side effects like data fetching, subscriptions, and manual DOM manipulations.'
+        explanation: 'useEffect is specifically designed for side effects like data fetching and timers.'
       },
       {
         q: 'What is the type of NaN in standard JavaScript?',
         options: ['number', 'NaN', 'undefined', 'object'],
         correct: 0,
-        explanation: 'In JavaScript, typeof NaN returns "number" according to the IEEE 754 floating-point specification.'
+        explanation: 'In JavaScript, typeof NaN returns "number".'
       }
     ]
   },
@@ -126,33 +97,10 @@ const QUIZ_BANKS = {
     name: 'Database Management Systems (DBMS)',
     questions: [
       {
-        q: 'Which normal form ensures that every non-trivial functional dependency X -> Y has X as a super key?',
-        options: ['1NF', '2NF', '3NF', 'BCNF'],
-        correct: 3,
-        explanation: 'Boyce-Codd Normal Form (BCNF) requires that for every functional dependency X -> Y, X must be a super key.'
-      },
-      {
-        q: 'Which ACID property guarantees that a transaction is either completely performed or not performed at all?',
+        q: 'Which ACID property guarantees that a transaction is completely performed or rolled back entirely?',
         options: ['Atomicity', 'Consistency', 'Isolation', 'Durability'],
         correct: 0,
-        explanation: 'Atomicity ensures all operations in a transaction succeed together or are rolled back completely.'
-      }
-    ]
-  },
-  java: {
-    name: 'Core Java & OOP',
-    questions: [
-      {
-        q: 'Which keyword prevents a class from being subclassed in Java?',
-        options: ['static', 'abstract', 'final', 'synchronized'],
-        correct: 2,
-        explanation: 'Declaring a class with the "final" modifier prevents any class from inheriting or extending it.'
-      },
-      {
-        q: 'Where are objects allocated in JVM memory during runtime?',
-        options: ['Stack Memory', 'Heap Memory', 'Method Area', 'Native Method Stack'],
-        correct: 1,
-        explanation: 'In Java, all objects and arrays are dynamically allocated inside the Heap area.'
+        explanation: 'Atomicity ensures all operations in a transaction execute or are reverted.'
       }
     ]
   }
@@ -160,19 +108,65 @@ const QUIZ_BANKS = {
 
 export default function AcademicHub() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('resources'); // 'resources' | 'events' | 'quizzes'
-
-  // Resource Filter State
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('resources');
+  const [resources, setResources] = useState(INITIAL_RESOURCES);
   const [resourceSearch, setResourceSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
 
-  // Quiz Execution States
+  // Quiz States
   const [activeQuizCategory, setActiveQuizCategory] = useState('python');
   const [userAnswers, setUserAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
-  // Filtered Subject Resources
-  const filteredResources = SUBJECT_RESOURCES.filter((res) => {
+  useEffect(() => {
+    // 1. Resolve User Context (Linked Student Profile or Dedicated Hub Login)
+    const linkedStudent = localStorage.getItem('student_profile');
+    const directHubUser = localStorage.getItem('hub_user');
+
+    if (linkedStudent) {
+      const parsed = JSON.parse(linkedStudent);
+      setCurrentUser({
+        name: parsed.full_name,
+        id: parsed.roll_no,
+        dept: parsed.dept_code,
+        year: parsed.year_level || '1st Year',
+        role: 'Student'
+      });
+    } else if (directHubUser) {
+      const parsed = JSON.parse(directHubUser);
+      setCurrentUser({
+        name: parsed.name,
+        id: parsed.id,
+        dept: parsed.dept,
+        year: parsed.year || '',
+        role: parsed.role === 'faculty' ? 'Faculty' : 'Student'
+      });
+    } else {
+      navigate('/hub-login');
+    }
+
+    // 2. Fetch Live Uploaded PDFs from Faculty
+    fetchResources();
+  }, [navigate]);
+
+  const fetchResources = async () => {
+    try {
+      const res = await axios.get('/api/resources');
+      if (res.data && res.data.success && res.data.resources.length > 0) {
+        setResources([...res.data.resources, ...INITIAL_RESOURCES]);
+      }
+    } catch (err) {
+      console.error('Error fetching resources:', err);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('hub_user');
+    navigate('/hub-login');
+  };
+
+  const filteredResources = resources.filter((res) => {
     const matchesDept = selectedDept === 'ALL' || res.dept === selectedDept;
     const matchesQuery =
       res.subject.toLowerCase().includes(resourceSearch.toLowerCase()) ||
@@ -181,9 +175,9 @@ export default function AcademicHub() {
     return matchesDept && matchesQuery;
   });
 
-  const handleSelectAnswer = (qIndex, optionIndex) => {
+  const handleSelectAnswer = (qIdx, optIdx) => {
     if (quizSubmitted) return;
-    setUserAnswers({ ...userAnswers, [qIndex]: optionIndex });
+    setUserAnswers({ ...userAnswers, [qIdx]: optIdx });
   };
 
   const calculateScore = () => {
@@ -195,15 +189,10 @@ export default function AcademicHub() {
     return score;
   };
 
-  const handleResetQuiz = () => {
-    setUserAnswers({});
-    setQuizSubmitted(false);
-  };
-
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px', minHeight: '100vh' }}>
       
-      {/* PORTAL HEADER */}
+      {/* HEADER WITH USER PROFILE BANNER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -213,34 +202,50 @@ export default function AcademicHub() {
         background: 'var(--card-bg)',
         border: '1px solid var(--glass-border)',
         boxShadow: 'var(--glass-shadow)',
-        marginBottom: '24px',
+        marginBottom: '20px',
         flexWrap: 'wrap',
-        gap: '12px'
+        gap: '14px'
       }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)' }}>
-            🏛️ Campus & Academic Hub
-          </h2>
-          <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-            Course materials, campus drives, technical expos & skill quizzes
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.3rem',
+            color: '#fff'
+          }}>
+            🏛️
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>Academic Hub</h2>
+            {currentUser && (
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Welcome, <strong>{currentUser.name}</strong> ({currentUser.id}) • {currentUser.dept} {currentUser.year}
+              </span>
+            )}
+          </div>
         </div>
 
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-secondary"
-          style={{ padding: '8px 16px', fontSize: '0.86rem' }}
-        >
-          ← Back to Student Attendance
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button onClick={() => navigate('/')} className="btn btn-secondary" style={{ fontSize: '0.84rem', padding: '8px 14px' }}>
+            ← Attendance Portal
+          </button>
+          <button onClick={handleLogout} className="btn btn-secondary" style={{ fontSize: '0.84rem', padding: '8px 14px', color: '#ef4444' }}>
+            Logout
+          </button>
+        </div>
       </div>
 
-      {/* NAVIGATION TABS */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
         {[
-          { id: 'resources', label: '📚 Subject PDFs & Notes' },
+          { id: 'resources', label: '📚 Subject PDFs & Lab Manuals' },
           { id: 'events', label: '🎯 Expos, Drives & Fests' },
-          { id: 'quizzes', label: '⚡ Programming & Subject Quizzes' }
+          { id: 'quizzes', label: '⚡ Technical Quizzes' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -253,8 +258,7 @@ export default function AcademicHub() {
               border: 'none',
               cursor: 'pointer',
               background: activeTab === tab.id ? 'var(--primary)' : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)',
-              transition: 'all 0.2s ease'
+              color: activeTab === tab.id ? '#ffffff' : 'var(--text-muted)'
             }}
           >
             {tab.label}
@@ -262,14 +266,14 @@ export default function AcademicHub() {
         ))}
       </div>
 
-      {/* ==================== TAB 1: SUBJECT PDFS & NOTES ==================== */}
+      {/* TAB 1: RESOURCES */}
       {activeTab === 'resources' && (
         <div>
-          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
+          <div className="card" style={{ padding: '18px', marginBottom: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
               <input
                 type="text"
-                placeholder="🔍 Search by subject, topic or document type..."
+                placeholder="🔍 Search by subject, topic or document title..."
                 value={resourceSearch}
                 onChange={(e) => setResourceSearch(e.target.value)}
                 style={{ padding: '10px 14px' }}
@@ -277,12 +281,12 @@ export default function AcademicHub() {
 
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>DEPT:</span>
-                {['ALL', 'MCA', 'CSE', 'IT'].map((dept) => (
+                {['ALL', 'MCA', 'CSE', 'IT', 'ECE'].map((dept) => (
                   <button
                     key={dept}
                     onClick={() => setSelectedDept(dept)}
                     className={selectedDept === dept ? 'btn btn-primary' : 'btn btn-secondary'}
-                    style={{ padding: '6px 14px', fontSize: '0.78rem' }}
+                    style={{ padding: '6px 12px', fontSize: '0.78rem' }}
                   >
                     {dept}
                   </button>
@@ -294,11 +298,11 @@ export default function AcademicHub() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
             {filteredResources.length === 0 ? (
               <div className="card" style={{ padding: '30px', textAlign: 'center', gridColumn: '1 / -1' }}>
-                <p style={{ color: 'var(--text-muted)' }}>No syllabus PDFs match your filters.</p>
+                <p style={{ color: 'var(--text-muted)' }}>No resources found matching your search.</p>
               </div>
             ) : (
               filteredResources.map((item) => (
-                <div key={item.id} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div key={item._id} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                       <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#818cf8' }}>
@@ -333,7 +337,7 @@ export default function AcademicHub() {
         </div>
       )}
 
-      {/* ==================== TAB 2: EXPOS, DRIVES & FESTS ==================== */}
+      {/* TAB 2: EVENTS */}
       {activeTab === 'events' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
           {CAMPUS_EVENTS.map((event) => (
@@ -356,7 +360,7 @@ export default function AcademicHub() {
               </div>
 
               <h3 style={{ fontSize: '1.08rem', margin: '0 0 8px 0' }}>{event.title}</h3>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: '1.4' }}>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
                 {event.description}
               </p>
 
@@ -368,7 +372,7 @@ export default function AcademicHub() {
               </div>
 
               <button
-                onClick={() => alert(`Registration confirmed for ${event.title}! Check your college email for schedule passes.`)}
+                onClick={() => alert(`Registration confirmed for ${event.title}!`)}
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
               >
@@ -379,21 +383,16 @@ export default function AcademicHub() {
         </div>
       )}
 
-      {/* ==================== TAB 3: QUIZZES ==================== */}
+      {/* TAB 3: QUIZZES */}
       {activeTab === 'quizzes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '20px' }}>
-          
-          {/* Quiz Topics Selector */}
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px' }}>
           <div className="card" style={{ padding: '16px', height: 'fit-content' }}>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem' }}>🎯 Choose Domain</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {Object.entries(QUIZ_BANKS).map(([key, item]) => (
                 <button
                   key={key}
-                  onClick={() => {
-                    setActiveQuizCategory(key);
-                    handleResetQuiz();
-                  }}
+                  onClick={() => { setActiveQuizCategory(key); setUserAnswers({}); setQuizSubmitted(false); }}
                   style={{
                     padding: '10px 14px',
                     borderRadius: '10px',
@@ -412,7 +411,6 @@ export default function AcademicHub() {
             </div>
           </div>
 
-          {/* Question Viewer */}
           <div className="card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem' }}>
@@ -450,7 +448,7 @@ export default function AcademicHub() {
                       if (isCorrect) {
                         bgColor = 'rgba(16, 185, 129, 0.2)';
                         borderColor = '#10b981';
-                      } else if (isSelected && !isCorrect) {
+                      } else if (isSelected) {
                         bgColor = 'rgba(239, 68, 68, 0.2)';
                         borderColor = '#ef4444';
                       }
@@ -501,7 +499,7 @@ export default function AcademicHub() {
                 </button>
               ) : (
                 <button
-                  onClick={handleResetQuiz}
+                  onClick={() => { setUserAnswers({}); setQuizSubmitted(false); }}
                   className="btn btn-secondary"
                   style={{ padding: '12px 24px', flex: 1 }}
                 >

@@ -6,6 +6,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import StudentAttendance from './pages/StudentAttendance';
 import AcademicHub from './pages/AcademicHub';
+import HubLogin from './pages/HubLogin';
+import TeacherDashboard from './pages/TeacherDashboard';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("appTheme") === "dark");
@@ -30,6 +32,8 @@ export default function App() {
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/student" element={<StudentAttendance />} />
         <Route path="/hub" element={<AcademicHub />} />
+        <Route path="/hub-login" element={<HubLogin />} />
+        <Route path="/faculty-portal" element={<TeacherDashboard />} />
         
       </Routes>
     </BrowserRouter>

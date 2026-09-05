@@ -856,6 +856,52 @@ app.put('/api/admin/leaves/review', async (req, res) => {
   }
 });
 
+const Resource = require('./models/Resource');
+
+// 1. Fetch all academic resources
+app.get('/api/resources', async (req, res) => {
+  try {
+    const resources = await Resource.find().sort({ createdAt: -1 });
+    res.json({ success: true, resources });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Faculty creates a new subject PDF resource
+app.post('/api/resources/create', async (req, res) => {
+  try {
+    const { subject, dept, year, docType, title, fileUrl, size, uploadedBy } = req.body;
+    if (!subject || !title || !fileUrl) {
+      return res.status(400).json({ success: false, message: 'Subject, Title, and PDF URL are required.' });
+    }
+
+    const newRes = await Resource.create({
+      subject,
+      dept: dept || 'MCA',
+      year: year || '1st Year',
+      docType: docType || 'Lecture Notes',
+      title,
+      fileUrl,
+      size: size || '2.5 MB',
+      uploadedBy: uploadedBy || 'Faculty'
+    });
+
+    res.json({ success: true, message: 'Resource published successfully!', resource: newRes });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Delete Resource
+app.delete('/api/resources/:id', async (req, res) => {
+  try {
+    await Resource.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Resource removed.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // CATCH-ALL ROUTE (Must stay right above app.listen)
 app.get('/{*splat}', (req, res) => {
