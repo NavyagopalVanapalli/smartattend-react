@@ -708,7 +708,22 @@ export default function StudentAttendance() {
           </div>
         </div>
       )}
-
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+  <button
+    onClick={() => { setShowLeaveModal(true); fetchLeaveHistory(); }}
+    className="btn btn-secondary"
+    style={{ padding: '12px', borderRadius: '12px', fontWeight: '700', fontSize: '0.82rem' }}
+  >
+    📄 OD / Leave Portal
+  </button>
+  <button
+    onClick={() => window.location.href = '/hub'}
+    className="btn btn-primary"
+    style={{ padding: '12px', borderRadius: '12px', fontWeight: '700', fontSize: '0.82rem' }}
+  >
+    🏛️ Campus Hub & Notes
+  </button>
+</div>
     </div>
   );
 }

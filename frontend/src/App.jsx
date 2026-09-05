@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import StudentAttendance from './pages/StudentAttendance';
+import AcademicHub from './pages/AcademicHub';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("appTheme") === "dark");
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/student" element={<StudentAttendance />} />
+        <Route path="/hub" element={<AcademicHub />} />
         
       </Routes>
     </BrowserRouter>
