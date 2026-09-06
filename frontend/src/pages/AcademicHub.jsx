@@ -25,9 +25,9 @@ const INITIAL_RESOURCES = [
   }
 ];
 
-const CAMPUS_EVENTS = [
+const PRESET_EVENTS = [
   {
-    id: 1,
+    _id: 'preset_event_1',
     type: 'Placement Drive',
     title: 'TCS Digital & Ninja On-Campus Recruitment',
     date: 'Sep 18, 2026',
@@ -37,7 +37,7 @@ const CAMPUS_EVENTS = [
     description: 'Aptitude followed by coding evaluation in Java/Python. Package ranges up to 7.5 LPA.'
   },
   {
-    id: 2,
+    _id: 'preset_event_2',
     type: 'Project Expo',
     title: 'InnovateX: Annual Technical Project Exhibition',
     date: 'Sep 25, 2026',
@@ -45,16 +45,6 @@ const CAMPUS_EVENTS = [
     eligible: 'Open to all years and branches',
     badgeColor: '#6366f1',
     description: 'Showcase working hardware or software prototypes. Cash prizes up to ₹25,000 for top 3 innovations.'
-  },
-  {
-    id: 3,
-    type: 'Hackathon',
-    title: 'CodeSprint 24-Hour AI & IoT Hackathon',
-    date: 'Oct 08, 2026',
-    venue: 'Computer Center Lab 3',
-    eligible: 'Teams of 2 to 4 members',
-    badgeColor: '#f59e0b',
-    description: 'Solve real-world problem statements submitted by industry partners within 24 hours.'
   }
 ];
 
@@ -109,10 +99,24 @@ const QUIZ_BANKS = {
 export default function AcademicHub() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('resources');
+  const [activeTab, setActiveTab] = useState('resources'); // 'resources' | 'events' | 'quizzes'
   const [resources, setResources] = useState(INITIAL_RESOURCES);
+  const [events, setEvents] = useState(PRESET_EVENTS);
   const [resourceSearch, setResourceSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
+
+  // Event Registration Form Modal States
+  const [registeringEvent, setRegisteringEvent] = useState(null);
+  const [demoRegForm, setDemoRegForm] = useState({
+    studentName: '',
+    rollNo: '',
+    dept: 'MCA',
+    year: '1st Year',
+    email: '',
+    phone: '',
+    teamName: ''
+  });
+  const [regSuccessMessage, setRegSuccessMessage] = useState(null);
 
   // Quiz States
   const [activeQuizCategory, setActiveQuizCategory] = useState('python');
@@ -120,43 +124,57 @@ export default function AcademicHub() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   useEffect(() => {
-    // 1. Check Faculty Session first to prevent student override
-    const teacherSession = localStorage.getItem('teacher_session');
-    const directHubUser = localStorage.getItem('hub_user');
-    const linkedStudent = localStorage.getItem('student_profile');
+    // 1. Resolve User Identity across all login pathways
+    const activeAdmin = localStorage.getItem('isAdminLoggedIn') === "true";
+    const teacherSession = JSON.parse(localStorage.getItem("activeTeacher") || localStorage.getItem("teacher_session") || "{}");
+    const hubUser = JSON.parse(localStorage.getItem('hub_user') || "{}");
+    const linkedStudent = JSON.parse(localStorage.getItem('student_profile') || "{}");
 
-    if (teacherSession) {
-      const parsedTeacher = JSON.parse(teacherSession);
+    if (activeAdmin) {
       setCurrentUser({
-        name: parsedTeacher.full_name,
-        id: parsedTeacher.teacher_id,
-        dept: parsedTeacher.dept_code,
+        name: 'Administrator',
+        id: 'ADMIN01',
+        dept: 'Admin Bureau',
+        year: 'HQ',
+        role: 'Admin'
+      });
+    } else if (teacherSession.teacher_id) {
+      setCurrentUser({
+        name: teacherSession.full_name,
+        id: teacherSession.teacher_id,
+        dept: teacherSession.dept_code || 'MCA',
         year: 'Faculty',
         role: 'Faculty'
       });
-    } else if (directHubUser) {
-      const parsedHubUser = JSON.parse(directHubUser);
+    } else if (hubUser.name) {
       setCurrentUser({
-        name: parsedHubUser.name,
-        id: parsedHubUser.id,
-        dept: parsedHubUser.dept,
-        year: parsedHubUser.year || (parsedHubUser.role === 'faculty' ? 'Faculty' : '1st Year'),
-        role: parsedHubUser.role === 'faculty' ? 'Faculty' : 'Student'
+        name: hubUser.name,
+        id: hubUser.id,
+        dept: hubUser.dept,
+        year: hubUser.year || (hubUser.role === 'faculty' ? 'Faculty' : '1st Year'),
+        role: hubUser.role === 'faculty' ? 'Faculty' : 'Student'
       });
-    } else if (linkedStudent) {
-      const parsedStudent = JSON.parse(linkedStudent);
+    } else if (linkedStudent.full_name) {
       setCurrentUser({
-        name: parsedStudent.full_name,
-        id: parsedStudent.roll_no,
-        dept: parsedStudent.dept_code,
-        year: parsedStudent.year_level || '1st Year',
+        name: linkedStudent.full_name,
+        id: linkedStudent.roll_no,
+        dept: linkedStudent.dept_code,
+        year: linkedStudent.year_level || '1st Year',
         role: 'Student'
       });
+      // Pre-fill demo form with known student info
+      setDemoRegForm(prev => ({
+        ...prev,
+        studentName: linkedStudent.full_name,
+        rollNo: linkedStudent.roll_no,
+        dept: linkedStudent.dept_code || 'MCA'
+      }));
     } else {
       navigate('/hub-login');
     }
 
     fetchResources();
+    fetchLiveEvents();
   }, [navigate]);
 
   const fetchResources = async () => {
@@ -166,13 +184,25 @@ export default function AcademicHub() {
         setResources([...res.data.resources, ...INITIAL_RESOURCES]);
       }
     } catch (err) {
-      console.error('Error fetching resources:', err);
+      console.error('Error loading resources:', err);
+    }
+  };
+
+  const fetchLiveEvents = async () => {
+    try {
+      const res = await axios.get('/api/events');
+      if (res.data && res.data.success && res.data.events.length > 0) {
+        setEvents([...res.data.events, ...PRESET_EVENTS]);
+      }
+    } catch (err) {
+      console.error('Error loading events:', err);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('hub_user');
     localStorage.removeItem('teacher_session');
+    localStorage.removeItem('activeTeacher');
     navigate('/hub-login');
   };
 
@@ -221,6 +251,28 @@ export default function AcademicHub() {
     }
   };
 
+  const handleOpenDemoModal = (event) => {
+    setRegisteringEvent(event);
+    setRegSuccessMessage(null);
+    if (currentUser && currentUser.role === 'Student') {
+      setDemoRegForm(prev => ({
+        ...prev,
+        studentName: currentUser.name,
+        rollNo: currentUser.id,
+        dept: currentUser.dept
+      }));
+    }
+  };
+
+  const handleSubmitDemoRegistration = (e) => {
+    e.preventDefault();
+    setRegSuccessMessage(`🎉 Demo Registration Confirmed for ${demoRegForm.studentName} (${demoRegForm.rollNo}) in "${registeringEvent.title}"! Pass sent to ${demoRegForm.email || 'student email'}.`);
+    setTimeout(() => {
+      setRegisteringEvent(null);
+      setRegSuccessMessage(null);
+    }, 2800);
+  };
+
   const filteredResources = resources.filter((res) => {
     const matchesDept = selectedDept === 'ALL' || res.dept === selectedDept;
     const matchesQuery =
@@ -244,28 +296,10 @@ export default function AcademicHub() {
     return score;
   };
 
-  // Inside AcademicHub.jsx component:
-const [events, setEvents] = useState(CAMPUS_EVENTS);
-
-useEffect(() => {
-  fetchLiveEvents();
-}, []);
-
-const fetchLiveEvents = async () => {
-  try {
-    const res = await axios.get('/api/events');
-    if (res.data && res.data.success && res.data.events.length > 0) {
-      setEvents([...res.data.events, ...CAMPUS_EVENTS]);
-    }
-  } catch (err) {
-    console.error('Error fetching live events:', err);
-  }
-};
-
   return (
     <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
       
-      {/* USER PROFILE HEADER */}
+      {/* USER PROFILE HEADER BANNER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -284,28 +318,32 @@ const fetchLiveEvents = async () => {
             width: '42px',
             height: '42px',
             borderRadius: '12px',
-            background: currentUser?.role === 'Faculty' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            background: currentUser?.role === 'Admin'
+              ? 'linear-gradient(135deg, #ec4899, #8b5cf6)'
+              : currentUser?.role === 'Faculty'
+              ? 'linear-gradient(135deg, #10b981, #059669)'
+              : 'linear-gradient(135deg, #6366f1, #4f46e5)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '1.25rem',
             color: '#fff'
           }}>
-            {currentUser?.role === 'Faculty' ? '👨‍🏫' : '🎓'}
+            {currentUser?.role === 'Admin' ? '🛡️' : currentUser?.role === 'Faculty' ? '👨‍🏫' : '🎓'}
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: 'clamp(1.2rem, 3.5vw, 1.4rem)', fontWeight: '800' }}>Academic Hub</h2>
             {currentUser && (
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Logged in as <strong>{currentUser.name}</strong> ({currentUser.id}) • {currentUser.dept} {currentUser.year !== 'Faculty' ? currentUser.year : ''} [{currentUser.role}]
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Logged in as <strong>{currentUser.name}</strong> ({currentUser.id}) • {currentUser.dept} [{currentUser.role}]
               </span>
             )}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/')} className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 14px' }}>
-            ← Attendance Portal
+          <button onClick={() => navigate(-1)} className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 14px' }}>
+            ← Back
           </button>
           <button onClick={handleLogout} className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 14px', color: '#ef4444' }}>
             Logout
@@ -410,11 +448,11 @@ const fetchLiveEvents = async () => {
         </div>
       )}
 
-      {/* TAB 2: EVENTS */}
+      {/* TAB 2: LIVE EVENTS & EXPOS */}
       {activeTab === 'events' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-          {CAMPUS_EVENTS.map((event) => (
-            <div key={event.id} className="card" style={{ padding: '18px', borderLeft: `4px solid ${event.badgeColor}` }}>
+          {events.map((event) => (
+            <div key={event._id || event.id} className="card" style={{ padding: '18px', borderLeft: `4px solid ${event.badgeColor || '#6366f1'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                 <span style={{
                   fontSize: '0.68rem',
@@ -422,8 +460,8 @@ const fetchLiveEvents = async () => {
                   textTransform: 'uppercase',
                   padding: '3px 8px',
                   borderRadius: '6px',
-                  background: `${event.badgeColor}22`,
-                  color: event.badgeColor
+                  background: `${event.badgeColor || '#6366f1'}22`,
+                  color: event.badgeColor || '#6366f1'
                 }}>
                   {event.type}
                 </span>
@@ -445,7 +483,7 @@ const fetchLiveEvents = async () => {
               </div>
 
               <button
-                onClick={() => alert(`Registration confirmed for ${event.title}!`)}
+                onClick={() => handleOpenDemoModal(event)}
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '9px', fontSize: '0.82rem' }}
               >
@@ -580,6 +618,128 @@ const fetchLiveEvents = async () => {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEMO EVENT REGISTRATION MODAL FORM */}
+      {registeringEvent && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '440px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>📝 Event Registration</h3>
+              <button onClick={() => setRegisteringEvent(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.25)', marginBottom: '16px' }}>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--primary)' }}>{registeringEvent.title}</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                📅 {registeringEvent.date} • 📍 {registeringEvent.venue}
+              </div>
+            </div>
+
+            {regSuccessMessage ? (
+              <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#10b981', fontWeight: '700', fontSize: '0.88rem', textAlign: 'center' }}>
+                {regSuccessMessage}
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitDemoRegistration}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Student Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={demoRegForm.studentName}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, studentName: e.target.value })}
+                      style={{ width: '100%', padding: '9px' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2585351122"
+                      value={demoRegForm.rollNo}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, rollNo: e.target.value.toUpperCase() })}
+                      style={{ width: '100%', padding: '9px' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                    <select
+                      value={demoRegForm.dept}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, dept: e.target.value })}
+                      style={{ width: '100%', padding: '9px' }}
+                    >
+                      <option value="MCA">MCA</option>
+                      <option value="CSE">CSE</option>
+                      <option value="IT">IT</option>
+                      <option value="ECE">ECE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
+                    <select
+                      value={demoRegForm.year}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, year: e.target.value })}
+                      style={{ width: '100%', padding: '9px' }}
+                    >
+                      <option value="1st Year">1st Year</option>
+                      <option value="2nd Year">2nd Year</option>
+                      <option value="3rd Year">3rd Year</option>
+                      <option value="4th Year">4th Year</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>College Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="student@college.edu"
+                    value={demoRegForm.email}
+                    onChange={e => setDemoRegForm({ ...demoRegForm, email: e.target.value })}
+                    style={{ width: '100%', padding: '9px' }}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Number</label>
+                    <input
+                      type="tel"
+                      placeholder="9876543210"
+                      maxLength="10"
+                      value={demoRegForm.phone}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, phone: e.target.value })}
+                      style={{ width: '100%', padding: '9px' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Team / Project Name</label>
+                    <input
+                      type="text"
+                      placeholder="Optional (Team AI)"
+                      value={demoRegForm.teamName}
+                      onChange={e => setDemoRegForm({ ...demoRegForm, teamName: e.target.value })}
+                      style={{ width: '100%', padding: '9px' }}
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontWeight: '700' }}>
+                  Submit Demo Registration →
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

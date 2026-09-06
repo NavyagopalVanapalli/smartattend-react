@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// HELPER: Get exact local YYYY-MM-DD date string (Prevents UTC timezone offsets)
 const getLocalTodayString = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -13,14 +12,13 @@ const getLocalTodayString = () => {
 
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
-  const activeTeacher = JSON.parse(sessionStorage.getItem("activeTeacher") || "{}");
+  // Read from localStorage so mobile shortcuts stay logged in
+  const activeTeacher = JSON.parse(localStorage.getItem("activeTeacher") || sessionStorage.getItem("activeTeacher") || "{}");
 
   const todayStr = getLocalTodayString();
 
-  // Drawer State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Filters State - Defaults to local today
   const [filters, setFilters] = useState({
     dept: activeTeacher.dept_code || 'MCA',
     year: '1st Year',
@@ -34,7 +32,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [attendance, setAttendance] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Modal States
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
@@ -44,17 +41,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
-  // 1. Initial Load & Filter Change Effect
   useEffect(() => {
     if (!activeTeacher.teacher_id) {
       navigate('/');
       return;
     }
+    // Mirror into localStorage to persist shortcut sessions
+    localStorage.setItem("activeTeacher", JSON.stringify(activeTeacher));
     setAttendance({});
     fetchStudentsAndAttendance();
   }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
 
-  // 2. Real-time Live Polling Every 3 Seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchLiveAttendanceOnly();
@@ -296,12 +293,11 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  // Explicitly syncs teacher credentials to the Hub so it displays the faculty's name
   const handleOpenHub = () => {
     setIsDrawerOpen(false);
     localStorage.setItem("hub_user", JSON.stringify({
       role: 'faculty',
-      name: activeTeacher.full_name || 'Faculty Instructor',
+      name: activeTeacher.full_name || 'Faculty Member',
       id: activeTeacher.teacher_id || 'FAC101',
       dept: activeTeacher.dept_code || filters.dept,
       year: 'Faculty'
@@ -311,6 +307,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
   const handleLogout = () => {
     sessionStorage.clear();
+    localStorage.removeItem("activeTeacher");
     localStorage.removeItem("teacher_session");
     localStorage.removeItem("hub_user");
     navigate('/');
@@ -327,7 +324,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '20px 15px', position: 'relative' }}>
       
-      {/* 1. SLIDE-OUT DRAWER BACKDROP */}
+      {/* DRAWER OVERLAY */}
       {isDrawerOpen && (
         <div
           onClick={() => setIsDrawerOpen(false)}
@@ -342,7 +339,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         />
       )}
 
-      {/* 2. LEFT SLIDE-OUT DRAWER */}
+      {/* LEFT HAMBURGER MENU */}
       <div style={{
         position: 'fixed',
         top: 0,
@@ -426,7 +423,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 3. TOP HEADER WITH HAMBURGER BUTTON */}
+      {/* TOP HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button
@@ -460,14 +457,14 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 4. FACULTY DETAILS BANNER */}
+      {/* FACULTY DETAILS BANNER */}
       <div className="card" style={{ padding: '14px 20px', marginBottom: '20px', background: 'rgba(79, 70, 229, 0.1)', border: '1px solid rgba(79, 70, 229, 0.2)' }}>
         <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--primary)' }}>
-          👤 Faculty: {activeTeacher.full_name || 'Dr. Dupesh'} | ID: {activeTeacher.teacher_id || 'FAC101'}
+          👤 Faculty: {activeTeacher.full_name || 'Faculty Member'} | ID: {activeTeacher.teacher_id || 'FAC101'}
         </span>
       </div>
 
-      {/* 5. FILTERS CARD */}
+      {/* FILTERS CARD */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '15px', marginBottom: '20px' }}>
           <div>
@@ -525,7 +522,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           </div>
         </div>
 
-        {/* ACTION BUTTONS */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
           <button onClick={() => setIsAddStudentOpen(true)} className="btn btn-secondary">
             ➕ Add Student
@@ -539,7 +535,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 6. CLASS REGISTER TABLE */}
+      {/* CLASS REGISTER TABLE */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>Class Attendance Register</h3>
@@ -548,7 +544,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           </span>
         </div>
 
-        {/* SEARCH BAR */}
         <div style={{ marginBottom: '20px' }}>
           <input
             type="text"
@@ -559,7 +554,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           />
         </div>
 
-        {/* TABLE */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
@@ -610,7 +604,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                       </td>
                       <td style={{ padding: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button 
-                          onClick={() => handleSendWhatsApp(student => handleSendWhatsApp(s))} 
+                          onClick={() => handleSendWhatsApp(s)} 
                           className="btn" 
                           style={{ padding: '5px 12px', fontSize: '0.8rem', background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', borderColor: '#25D366' }}
                         >
@@ -632,7 +626,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 7. SUMMARY ANALYTICS SECTION */}
+      {/* SUMMARY ANALYTICS SECTION */}
       <div className="card" style={{ padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px', marginBottom: '24px' }}>
           <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
@@ -651,7 +645,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           </div>
         </div>
 
-        {/* SIDE-BY-SIDE LISTS */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
           <div>
             <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '12px', color: '#10b981' }}>Present List ({presentStudents.length})</h4>
