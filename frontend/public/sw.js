@@ -1,5 +1,4 @@
-const CACHE_NAME = 'smartattend-shell-v4';
-
+// Self-destroy stale caches
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -11,19 +10,9 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Always fetch fresh network requests for page navigation
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-
-  // SPA navigation fallback: always fetch from network or return index.html shell
-  if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/index.html'))
-    );
-    return;
-  }
-
-  // Assets and data requests
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -25,20 +25,25 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        
-        {/* Dedicated Teacher URL for mobile shortcuts */}
+        {/* Student Portal Entry */}
+        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Teacher / Attendance Dashboard Entries */}
         <Route path="/teacher" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        
-        {/* Dedicated Student URL for mobile shortcuts */}
-        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        
+        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Admin Portal Entries */}
         <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin-login" element={<AdminLogin />} />
+
+        {/* Academic Hub */}
         <Route path="/hub" element={<AcademicHub />} />
         <Route path="/hub-login" element={<HubLogin />} />
-        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Default Landing */}
+        <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
