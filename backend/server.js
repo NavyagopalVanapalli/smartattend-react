@@ -927,6 +927,52 @@ app.post('/api/resources/create', async (req, res) => {
   }
 });
 
+const Event = require('./models/Event');
+
+// 1. Fetch All Events
+app.get('/api/events', async (req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 });
+    res.json({ success: true, events });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Create Event (Admin)
+app.post('/api/admin/events', async (req, res) => {
+  try {
+    const { type, title, date, venue, eligible, badgeColor, description } = req.body;
+    if (!title || !date || !venue) {
+      return res.status(400).json({ success: false, message: 'Title, Date, and Venue are required.' });
+    }
+
+    const newEvent = await Event.create({
+      type: type || 'Project Expo',
+      title,
+      date,
+      venue,
+      eligible: eligible || 'All Students',
+      badgeColor: badgeColor || '#6366f1',
+      description: description || 'Campus event description'
+    });
+
+    res.json({ success: true, message: 'Event published successfully!', event: newEvent });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Delete Event (Admin)
+app.delete('/api/admin/events/:id', async (req, res) => {
+  try {
+    await Event.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Event deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // CATCH-ALL ROUTE (Must stay right above app.listen)
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));

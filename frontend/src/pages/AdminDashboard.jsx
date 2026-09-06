@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function AdminDashboard({ darkMode, setDarkMode }) {
-  const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty' | 'leaves'
+  const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty' | 'leaves' | 'events'
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [eventsList, setEventsList] = useState([]);
   const [stats, setStats] = useState({ totalStudents: 0, totalTeachers: 0, todayPresent: 0, todayAbsent: 0 });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -18,9 +19,21 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
 
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
 
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
+
+  // New Event Form State
+  const [newEvent, setNewEvent] = useState({
+    type: 'Project Expo',
+    title: '',
+    date: '',
+    venue: '',
+    eligible: 'All Students & Faculty',
+    badgeColor: '#6366f1',
+    description: ''
+  });
 
   const [newStudent, setNewStudent] = useState({
     roll_no: '',
@@ -46,10 +59,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       window.location.href = '/admin-login';
     } else {
       fetchDashboardData();
+      fetchEvents();
     }
   }, []);
 
-  // Auto-dismiss floating toast notification after 4 seconds
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => {
@@ -89,6 +102,17 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      const res = await axios.get('/api/events');
+      if (res.data && res.data.success) {
+        setEventsList(res.data.events);
+      }
+    } catch (err) {
+      console.error('Error fetching campus events:', err);
+    }
+  };
+
   const handleReviewLeave = async (leaveId, status) => {
     try {
       const res = await axios.put('/api/admin/leaves/review', { leaveId, status });
@@ -99,6 +123,40 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Error updating leave application.' });
+    }
+  };
+
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('/api/admin/events', newEvent);
+      if (res.data.success) {
+        setMessage({ type: 'success', text: '🎯 Campus Event published to Academic Hub!' });
+        setShowAddEventModal(false);
+        setNewEvent({
+          type: 'Project Expo',
+          title: '',
+          date: '',
+          venue: '',
+          eligible: 'All Students & Faculty',
+          badgeColor: '#6366f1',
+          description: ''
+        });
+        fetchEvents();
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to add event.' });
+    }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (!window.confirm('Remove this event from Academic Hub?')) return;
+    try {
+      await axios.delete(`/api/admin/events/${id}`);
+      setMessage({ type: 'success', text: 'Event removed successfully.' });
+      fetchEvents();
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to delete event.' });
     }
   };
 
@@ -241,14 +299,14 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               Executive Control Center
             </h2>
             <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-              Logged in as <strong style={{ color: '#6366f1' }}>System Administrator</strong>[cite: 5]
+              Logged in as <strong style={{ color: '#6366f1' }}>System Administrator</strong>
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.href = '/dashboard'}
             style={{
               padding: '8px 18px',
               borderRadius: '10px',
@@ -260,7 +318,23 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               cursor: 'pointer'
             }}
           >
-            ← Main Portal
+            ← Attendance Register
+          </button>
+
+          <button
+            onClick={() => window.location.href = '/hub'}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontSize: '0.86rem',
+              fontWeight: '700',
+              border: '1px solid var(--glass-border)',
+              background: darkMode ? 'rgba(255,255,255,0.08)' : '#f8fafc',
+              color: 'var(--text-main)',
+              cursor: 'pointer'
+            }}
+          >
+            🏛️ Campus Hub
           </button>
 
           {setDarkMode && (
@@ -375,7 +449,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       </div>
 
       {/* TABS CONTROLLER */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', flexWrap: 'wrap', overflowX: 'auto' }}>
         <button
           onClick={() => setActiveTab('students')}
           style={{
@@ -385,6 +459,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             fontWeight: '700',
             border: 'none',
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
             background: activeTab === 'students' ? 'var(--primary)' : 'transparent',
             color: activeTab === 'students' ? '#ffffff' : 'var(--text-muted)'
           }}
@@ -400,6 +475,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             fontWeight: '700',
             border: 'none',
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
             background: activeTab === 'faculty' ? 'var(--primary)' : 'transparent',
             color: activeTab === 'faculty' ? '#ffffff' : 'var(--text-muted)'
           }}
@@ -415,11 +491,28 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             fontWeight: '700',
             border: 'none',
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
             background: activeTab === 'leaves' ? 'var(--primary)' : 'transparent',
             color: activeTab === 'leaves' ? '#ffffff' : 'var(--text-muted)'
           }}
         >
           📄 OD & Leave Approvals
+        </button>
+        <button
+          onClick={() => { setActiveTab('events'); fetchEvents(); }}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            fontSize: '0.9rem',
+            fontWeight: '700',
+            border: 'none',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            background: activeTab === 'events' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'events' ? '#ffffff' : 'var(--text-muted)'
+          }}
+        >
+          🎯 Campus Events & Expos
         </button>
       </div>
 
@@ -432,7 +525,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               placeholder="🔍 Search student by name, roll number, or department..."
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
+              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '300px', fontSize: '0.88rem' }}
             />
             <button
               onClick={() => setShowAddStudentModal(true)}
@@ -523,7 +616,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               placeholder="🔍 Search faculty by name, ID, or department..."
               value={teacherSearch}
               onChange={(e) => setTeacherSearch(e.target.value)}
-              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '320px', fontSize: '0.88rem' }}
+              style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '300px', fontSize: '0.88rem' }}
             />
             <button
               onClick={() => setShowAddTeacherModal(true)}
@@ -663,6 +756,191 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: CAMPUS EVENTS & EXPOS MANAGEMENT */}
+      {activeTab === 'events' && (
+        <div className="card" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>🎯 Campus Events, Expos & Drives</h3>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Publish announcements and demo registrations directly to the Academic Hub</span>
+            </div>
+            <button
+              onClick={() => setShowAddEventModal(true)}
+              className="btn btn-primary"
+              style={{ padding: '10px 18px', fontSize: '0.88rem' }}
+            >
+              + Add New Event
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+            {eventsList.length === 0 ? (
+              <div className="card" style={{ padding: '30px', textAlign: 'center', gridColumn: '1 / -1' }}>
+                <p style={{ color: 'var(--text-muted)' }}>No events added yet. Click "+ Add New Event" to publish one.</p>
+              </div>
+            ) : (
+              eventsList.map((ev) => (
+                <div key={ev._id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${ev.badgeColor || '#6366f1'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: `${ev.badgeColor || '#6366f1'}22`,
+                      color: ev.badgeColor || '#6366f1'
+                    }}>
+                      {ev.type}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                      📅 {ev.date}
+                    </span>
+                  </div>
+
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem' }}>{ev.title}</h4>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.4' }}>
+                    {ev.description}
+                  </p>
+
+                  <div style={{ fontSize: '0.78rem', marginBottom: '4px' }}>
+                    <strong>📍 Venue:</strong> {ev.venue}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', marginBottom: '16px', color: '#a855f7' }}>
+                    <strong>🎓 Eligibility:</strong> {ev.eligible}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => alert(`DEMO REGISTRATION SUCCESSFUL!\n\nEvent: ${ev.title}\nVenue: ${ev.venue}\nYour schedule pass has been logged.`)}
+                      className="btn btn-primary"
+                      style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
+                    >
+                      Demo Register
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEvent(ev._id)}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 14px', fontSize: '0.8rem', color: '#ef4444' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ADD EVENT MODAL */}
+      {showAddEventModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '460px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>+ Publish New Campus Event</h3>
+              <button onClick={() => setShowAddEventModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleAddEvent}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Event Category</label>
+                <select
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
+                  style={{ width: '100%', padding: '9px' }}
+                >
+                  <option value="Project Expo">Project Expo</option>
+                  <option value="Placement Drive">Placement Drive</option>
+                  <option value="Hackathon">Hackathon</option>
+                  <option value="College Festival">College Festival</option>
+                  <option value="Technical Workshop">Technical Workshop</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Event Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Annual Smart Tech Expo 2026"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  style={{ width: '100%', padding: '9px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Event Date</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Oct 15, 2026"
+                    value={newEvent.date}
+                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                    style={{ width: '100%', padding: '9px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Badge Accent Color</label>
+                  <select
+                    value={newEvent.badgeColor}
+                    onChange={(e) => setNewEvent({ ...newEvent, badgeColor: e.target.value })}
+                    style={{ width: '100%', padding: '9px' }}
+                  >
+                    <option value="#6366f1">Indigo (Project Expo)</option>
+                    <option value="#10b981">Green (Placement Drive)</option>
+                    <option value="#f59e0b">Orange (Hackathon)</option>
+                    <option value="#ec4899">Pink (College Festival)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Campus Venue</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Innovation Center, Block C"
+                  value={newEvent.venue}
+                  onChange={(e) => setNewEvent({ ...newEvent, venue: e.target.value })}
+                  style={{ width: '100%', padding: '9px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Eligibility</label>
+                <input
+                  type="text"
+                  placeholder="e.g. All B.Tech & MCA Students"
+                  value={newEvent.eligible}
+                  onChange={(e) => setNewEvent({ ...newEvent, eligible: e.target.value })}
+                  style={{ width: '100%', padding: '9px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Brief Description</label>
+                <textarea
+                  rows="2"
+                  placeholder="Describe registration requirements, prizes, or agenda"
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  style={{ width: '100%', padding: '9px', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Publish Event</button>
+                <button type="button" onClick={() => setShowAddEventModal(false)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

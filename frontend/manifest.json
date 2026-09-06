@@ -1,16 +1,31 @@
 {
   "short_name": "SmartAttend",
-  "name": "SmartAttend Student Portal",
+  "name": "Smart Attendance & Academic Ecosystem",
   "icons": [
     {
       "src": "/Srivishnu_Logo.jpg",
-      "type": "image/jpeg",
-      "sizes": "192x192 512x512"
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg"
     }
   ],
-  "start_url": "/student",
-  "background_color": "#090d16",
-  "theme_color": "#4f46e5",
+  "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait"
+  "theme_color": "#4f46e5",
+  "background_color": "#0f172a",
+  "shortcuts": [
+    {
+      "name": "Faculty Dashboard",
+      "short_name": "Teacher",
+      "description": "Faculty Attendance & Register",
+      "url": "/teacher",
+      "icons": [{ "src": "/Srivishnu_Logo.jpg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Student Attendance",
+      "short_name": "Student",
+      "description": "Student Self-Service Portal",
+      "url": "/",
+      "icons": [{ "src": "/Srivishnu_Logo.jpg", "sizes": "192x192" }]
+    }
+  ]
 }

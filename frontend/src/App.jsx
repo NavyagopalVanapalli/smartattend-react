@@ -26,13 +26,17 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        
+        {/* Dedicated URL for the Mobile Shortcut to bypass login redirects */}
+        <Route path="/teacher" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        
         <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/hub" element={<AcademicHub />} />
         <Route path="/hub-login" element={<HubLogin />} />
-        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />}/>
+        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
       </Routes>
     </BrowserRouter>
   );

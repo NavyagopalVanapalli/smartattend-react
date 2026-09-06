@@ -244,6 +244,24 @@ export default function AcademicHub() {
     return score;
   };
 
+  // Inside AcademicHub.jsx component:
+const [events, setEvents] = useState(CAMPUS_EVENTS);
+
+useEffect(() => {
+  fetchLiveEvents();
+}, []);
+
+const fetchLiveEvents = async () => {
+  try {
+    const res = await axios.get('/api/events');
+    if (res.data && res.data.success && res.data.events.length > 0) {
+      setEvents([...res.data.events, ...CAMPUS_EVENTS]);
+    }
+  } catch (err) {
+    console.error('Error fetching live events:', err);
+  }
+};
+
   return (
     <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
       
