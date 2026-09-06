@@ -35,8 +35,7 @@ export default function StudentAttendance() {
   useEffect(() => {
     const RESET_KEY = "reset_student_logins_v2";
     if (!localStorage.getItem(RESET_KEY)) {
-      localStorage.clear();
-      sessionStorage.clear();
+      localStorage.removeItem("student_profile");
       localStorage.setItem(RESET_KEY, "true");
       setStudentInfo(null);
       setDetailedStats(null);

@@ -1,0 +1,19 @@
+{
+  "id": "/student",
+  "short_name": "Student",
+  "name": "Student Attendance",
+  "icons": [
+    {
+      "src": "/Srivishnu_Logo.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/student",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "theme_color": "#4f46e5",
+  "background_color": "#0f172a"
+}

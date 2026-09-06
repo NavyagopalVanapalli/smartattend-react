@@ -23,27 +23,10 @@ const getSavedTeacher = () => {
   }
 };
 
-const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);
-
-useEffect(() => {
-  const teacher = getSavedTeacher();
-  if (!teacher || !teacher.teacher_id) {
-    navigate('/');
-    return;
-  }
-
-  // Keep saved for future shortcut launches
-  localStorage.setItem("activeTeacher", JSON.stringify(teacher));
-  localStorage.setItem("teacher_session", JSON.stringify(teacher));
-  setActiveTeacher(teacher);
-
-  setAttendance({});
-  fetchStudentsAndAttendance();
-}, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
-
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
-  const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);
+  // Initialize state once safely without recreating object references on every render
+  const [activeTeacher] = useState(getSavedTeacher);
   const todayStr = getLocalTodayString();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -70,30 +53,27 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
-  // 1. Initial Load & Persistent Session Recovery
+  // 1. Authentication Check on Mount
   useEffect(() => {
-    const teacher = getSavedTeacher();
-    if (!teacher || !teacher.teacher_id) {
+    if (!activeTeacher || !activeTeacher.teacher_id) {
       navigate('/');
-      return;
     }
+  }, [activeTeacher, navigate]);
 
-    localStorage.setItem("activeTeacher", JSON.stringify(teacher));
-    localStorage.setItem("teacher_session", JSON.stringify(teacher));
-    setActiveTeacher(teacher);
-
-    setAttendance({});
-    fetchStudentsAndAttendance();
-  }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
-
-  // 2. Real-time Live Attendance Polling
+  // 2. Data Fetching Effect when Filters Change
   useEffect(() => {
-    if (!activeTeacher.teacher_id) return;
+    if (!activeTeacher?.teacher_id) return;
+    fetchStudentsAndAttendance();
+  }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date, activeTeacher.teacher_id]);
+
+  // 3. Real-time Live Attendance Polling
+  useEffect(() => {
+    if (!activeTeacher?.teacher_id) return;
     const interval = setInterval(() => {
       fetchLiveAttendanceOnly();
     }, 3000);
     return () => clearInterval(interval);
-  }, [filters.dept, filters.hour, filters.date, activeTeacher.teacher_id]);
+  }, [filters.dept, filters.hour, filters.date, activeTeacher?.teacher_id]);
 
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
