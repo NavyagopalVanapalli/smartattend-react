@@ -42,7 +42,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     parent_phone: '',
     dept_code: 'MCA',
     year_level: '1st Year',
-    section: 'Sec A'
+    section: 'Sec A',
+    academic_period: '2024 - 2026',
+    programming_languages: 'Python, React.js, JavaScript, MySQL',
+    projects: 'Smart Attendance System\nE-Commerce Web App',
+    certificates: 'Full-Stack Bootcamp Certificate\nCollege Technical Fest Winner'
   });
 
   const [newTeacher, setNewTeacher] = useState({
@@ -51,6 +55,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     email: '',
     phone: '',
     dept_code: 'MCA',
+    total_experience: '6+ Years',
+    previous_colleges: 'Sri Vishnu Institute of Technology\nJNTU College of Engineering',
+    known_subjects: 'Data Structures, Database Management, Python, Cloud Computing',
+    current_teaching_subjects: 'Web Application Development, DBMS Lab',
     password_hash: 'admin123'
   });
 
@@ -66,9 +74,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
 
   useEffect(() => {
     if (message) {
-      const timer = setTimeout(() => {
-        setMessage(null);
-      }, 4000);
+      const timer = setTimeout(() => setMessage(null), 4000);
       return () => clearTimeout(timer);
     }
   }, [message]);
@@ -157,7 +163,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   };
 
   const handleDeleteEvent = async (id) => {
-    if (!window.confirm('Remove this event from Academic Hub?')) return;
+    if (!window.confirm('Delete this event?')) return;
     try {
       await axios.delete(`/api/admin/events/${id}`);
       setMessage({ type: 'success', text: 'Event removed successfully.' });
@@ -170,11 +176,22 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const handleAddStudent = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/admin/students', newStudent);
+      const payload = {
+        ...newStudent,
+        programming_languages: newStudent.programming_languages.split(',').map(s => s.trim()).filter(Boolean),
+        projects: newStudent.projects.split('\n').map(s => s.trim()).filter(Boolean),
+        certificates: newStudent.certificates.split('\n').map(s => s.trim()).filter(Boolean)
+      };
+
+      const res = await axios.post('/api/admin/students', payload);
       if (res.data.success) {
         setMessage({ type: 'success', text: 'Student added successfully!' });
         setShowAddStudentModal(false);
-        setNewStudent({ roll_no: '', full_name: '', parent_phone: '', dept_code: 'MCA', year_level: '1st Year', section: 'Sec A' });
+        setNewStudent({
+          roll_no: '', full_name: '', parent_phone: '', dept_code: 'MCA',
+          year_level: '1st Year', section: 'Sec A', academic_period: '2024 - 2026',
+          programming_languages: '', projects: '', certificates: ''
+        });
         fetchDashboardData();
       }
     } catch (err) {
@@ -198,7 +215,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const handleSaveEditStudent = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.put('/api/admin/students/extended-update', editingStudent);
+      const payload = {
+        ...editingStudent,
+        programming_languages: typeof editingStudent.programming_languages === 'string'
+          ? editingStudent.programming_languages.split(',').map(s => s.trim()).filter(Boolean)
+          : editingStudent.programming_languages,
+        projects: typeof editingStudent.projects === 'string'
+          ? editingStudent.projects.split('\n').map(s => s.trim()).filter(Boolean)
+          : editingStudent.projects,
+        certificates: typeof editingStudent.certificates === 'string'
+          ? editingStudent.certificates.split('\n').map(s => s.trim()).filter(Boolean)
+          : editingStudent.certificates
+      };
+
+      const res = await axios.put('/api/admin/students/extended-update', payload);
       if (res.data.success) {
         setMessage({ type: 'success', text: `Student ${editingStudent.roll_no} updated successfully!` });
         setEditingStudent(null);
@@ -212,11 +242,22 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const handleAddTeacher = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/admin/teachers', newTeacher);
+      const payload = {
+        ...newTeacher,
+        previous_colleges: newTeacher.previous_colleges.split('\n').map(s => s.trim()).filter(Boolean),
+        known_subjects: newTeacher.known_subjects.split(',').map(s => s.trim()).filter(Boolean),
+        current_teaching_subjects: newTeacher.current_teaching_subjects.split(',').map(s => s.trim()).filter(Boolean)
+      };
+
+      const res = await axios.post('/api/admin/teachers', payload);
       if (res.data.success) {
         setMessage({ type: 'success', text: 'Faculty added successfully!' });
         setShowAddTeacherModal(false);
-        setNewTeacher({ teacher_id: '', full_name: '', email: '', phone: '', dept_code: 'MCA', password_hash: 'admin123' });
+        setNewTeacher({
+          teacher_id: '', full_name: '', email: '', phone: '', dept_code: 'MCA',
+          total_experience: '', previous_colleges: '', known_subjects: '', current_teaching_subjects: '',
+          password_hash: 'admin123'
+        });
         fetchDashboardData();
       }
     } catch (err) {
@@ -240,7 +281,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const handleSaveEditTeacher = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.put('/api/admin/teachers/extended-update', editingTeacher);
+      const payload = {
+        ...editingTeacher,
+        previous_colleges: typeof editingTeacher.previous_colleges === 'string'
+          ? editingTeacher.previous_colleges.split('\n').map(s => s.trim()).filter(Boolean)
+          : editingTeacher.previous_colleges,
+        known_subjects: typeof editingTeacher.known_subjects === 'string'
+          ? editingTeacher.known_subjects.split(',').map(s => s.trim()).filter(Boolean)
+          : editingTeacher.known_subjects,
+        current_teaching_subjects: typeof editingTeacher.current_teaching_subjects === 'string'
+          ? editingTeacher.current_teaching_subjects.split(',').map(s => s.trim()).filter(Boolean)
+          : editingTeacher.current_teaching_subjects
+      };
+
+      const res = await axios.put('/api/admin/teachers/extended-update', payload);
       if (res.data.success) {
         setMessage({ type: 'success', text: `Faculty ${editingTeacher.teacher_id} updated successfully!` });
         setEditingTeacher(null);
@@ -276,7 +330,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
       
-      {/* HEADER */}
+      {/* EXECUTIVE CONTROL CENTER HEADER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -527,7 +581,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </button>
       </div>
 
-      {/* TAB 1: STUDENTS */}
+      {/* TAB 1: STUDENTS DIRECTORY */}
       {activeTab === 'students' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -580,8 +634,25 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                     <td style={{ padding: '12px' }}>{s.parent_phone}</td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button onClick={() => setEditingStudent(s)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}>Edit</button>
-                        <button onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>Delete</button>
+                        <button
+                          onClick={() => setEditingStudent({
+                            ...s,
+                            programming_languages: Array.isArray(s.programming_languages) ? s.programming_languages.join(', ') : (s.programming_languages || ''),
+                            projects: Array.isArray(s.projects) ? s.projects.join('\n') : (s.projects || ''),
+                            certificates: Array.isArray(s.certificates) ? s.certificates.join('\n') : (s.certificates || '')
+                          })}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -592,7 +663,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* TAB 2: FACULTY */}
+      {/* TAB 2: FACULTY DIRECTORY */}
       {activeTab === 'faculty' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -628,7 +699,18 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                     <td style={{ padding: '12px' }}>{t.phone || 'Not Registered'}</td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button onClick={() => setEditingTeacher(t)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}>Edit</button>
+                        <button
+                          onClick={() => setEditingTeacher({
+                            ...t,
+                            previous_colleges: Array.isArray(t.previous_colleges) ? t.previous_colleges.join('\n') : (t.previous_colleges || ''),
+                            known_subjects: Array.isArray(t.known_subjects) ? t.known_subjects.join(', ') : (t.known_subjects || ''),
+                            current_teaching_subjects: Array.isArray(t.current_teaching_subjects) ? t.current_teaching_subjects.join(', ') : (t.current_teaching_subjects || '')
+                          })}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
+                        >
+                          Edit
+                        </button>
                         <button onClick={() => handleDeleteTeacher(t.teacher_id)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>Delete</button>
                       </div>
                     </td>
@@ -956,10 +1038,57 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
               Roll No: {viewingStudentModal.roll_no} • {viewingStudentModal.dept_code} ({viewingStudentModal.year_level || '1st Year'})
             </p>
+
             <div style={{ marginBottom: '12px' }}>
               <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>📅 Academic Period:</strong>
               <div style={{ fontSize: '0.88rem' }}>{viewingStudentModal.academic_period || '2024 - 2026'}</div>
             </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>💻 Programming Languages Learned:</strong>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {(viewingStudentModal.programming_languages && viewingStudentModal.programming_languages.length > 0)
+                  ? viewingStudentModal.programming_languages.map((lang, idx) => (
+                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {lang}
+                      </span>
+                    ))
+                  : ['Python', 'JavaScript', 'React.js', 'MySQL'].map((lang, idx) => (
+                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {lang}
+                      </span>
+                    ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🚀 Projects Built Till Now:</strong>
+              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
+                {(viewingStudentModal.projects && viewingStudentModal.projects.length > 0)
+                  ? viewingStudentModal.projects.map((proj, idx) => <li key={idx}>{proj}</li>)
+                  : (
+                    <>
+                      <li>Smart Attendance System with GPS Geofencing</li>
+                      <li>E-Commerce Cart Management Web App</li>
+                    </>
+                  )}
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏆 Certificates Received in College:</strong>
+              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
+                {(viewingStudentModal.certificates && viewingStudentModal.certificates.length > 0)
+                  ? viewingStudentModal.certificates.map((cert, idx) => <li key={idx}>{cert}</li>)
+                  : (
+                    <>
+                      <li>Full-Stack Web Development Bootcamp Certificate</li>
+                      <li>College Technical Fest - 1st Prize Web Designing</li>
+                    </>
+                  )}
+              </ul>
+            </div>
+
             <button onClick={() => setViewingStudentModal(null)} className="btn btn-primary" style={{ width: '100%', padding: '10px' }}>
               Close Student Details
             </button>
@@ -975,10 +1104,60 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
               Faculty ID: {viewingTeacherModal.teacher_id} • Dept: {viewingTeacherModal.dept_code} • {viewingTeacherModal.email}
             </p>
+
             <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>⏳ Teaching Experience:</strong>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>⏳ Total Teaching Experience:</strong>
               <div style={{ fontSize: '0.88rem' }}>{viewingTeacherModal.total_experience || '6+ Years'}</div>
             </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏛️ Previous Colleges Taught:</strong>
+              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
+                {(viewingTeacherModal.previous_colleges && viewingTeacherModal.previous_colleges.length > 0)
+                  ? viewingTeacherModal.previous_colleges.map((col, idx) => <li key={idx}>{col}</li>)
+                  : (
+                    <>
+                      <li>Sri Vishnu Institute of Technology (2020 - 2023)</li>
+                      <li>JNTU College of Engineering (2018 - 2020)</li>
+                    </>
+                  )}
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>📖 Known Subjects:</strong>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {(viewingTeacherModal.known_subjects && viewingTeacherModal.known_subjects.length > 0)
+                  ? viewingTeacherModal.known_subjects.map((subj, idx) => (
+                      <span key={idx} style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {subj}
+                      </span>
+                    ))
+                  : ['Data Structures', 'Database Management', 'Python', 'Cloud Computing', 'Operating Systems'].map((subj, idx) => (
+                      <span key={idx} style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {subj}
+                      </span>
+                    ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏫 Currently Teaching Subjects:</strong>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {(viewingTeacherModal.current_teaching_subjects && viewingTeacherModal.current_teaching_subjects.length > 0)
+                  ? viewingTeacherModal.current_teaching_subjects.map((subj, idx) => (
+                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {subj}
+                      </span>
+                    ))
+                  : ['Web Application Development', 'DBMS Lab (MCA 1st Year)'].map((subj, idx) => (
+                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                        {subj}
+                      </span>
+                    ))}
+              </div>
+            </div>
+
             <button onClick={() => setViewingTeacherModal(null)} className="btn btn-primary" style={{ width: '100%', padding: '10px' }}>
               Close Faculty Details
             </button>
@@ -986,46 +1165,255 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* EDIT STUDENT MODAL */}
+      {/* EDIT STUDENT DETAILS MODAL */}
       {editingStudent && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '480px', textAlign: 'left' }}>
-            <h3>✏️ Edit Student Details</h3>
-            <form onSubmit={handleSaveEditStudent} style={{ marginTop: '12px' }}>
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" value={editingStudent.full_name} onChange={e => setEditingStudent({ ...editingStudent, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>✏️ Edit Student Details</h3>
+              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditStudent}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
+                  <input
+                    type="text"
+                    value={editingStudent.roll_no}
+                    disabled
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    value={editingStudent.full_name}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
-                <input type="text" value={editingStudent.parent_phone} onChange={e => setEditingStudent({ ...editingStudent, parent_phone: e.target.value })} style={{ width: '100%', padding: '10px' }} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                  <select
+                    value={editingStudent.dept_code}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, dept_code: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="MCA">MCA</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
+                  <select
+                    value={editingStudent.year_level}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, year_level: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Changes</button>
-                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📅 Academic Period</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2024 - 2026"
+                    value={editingStudent.academic_period || ''}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, academic_period: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    value={editingStudent.parent_phone || ''}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, parent_phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>💻 Programming Languages (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Python, React.js, JavaScript, Java"
+                  value={editingStudent.programming_languages || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, programming_languages: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🚀 Projects Built (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each project on a new line"
+                  value={editingStudent.projects || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, projects: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏆 Certificates Received (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each certificate on a new line"
+                  value={editingStudent.certificates || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, certificates: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
+                  Save Student Changes
+                </button>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* EDIT FACULTY MODAL */}
+      {/* EDIT FACULTY DETAILS MODAL */}
       {editingTeacher && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '480px', textAlign: 'left' }}>
-            <h3>✏️ Edit Faculty Details</h3>
-            <form onSubmit={handleSaveEditTeacher} style={{ marginTop: '12px' }}>
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" value={editingTeacher.full_name} onChange={e => setEditingTeacher({ ...editingTeacher, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>✏️ Edit Faculty Details</h3>
+              <button onClick={() => setEditingTeacher(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditTeacher}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.teacher_id}
+                    disabled
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.full_name}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
-                <input type="email" value={editingTeacher.email} onChange={e => setEditingTeacher({ ...editingTeacher, email: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                  <select
+                    value={editingTeacher.dept_code}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, dept_code: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="MCA">MCA</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Total Experience</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 6+ Years"
+                    value={editingTeacher.total_experience || ''}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, total_experience: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Changes</button>
-                <button type="button" onClick={() => setEditingTeacher(null)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email Address</label>
+                  <input
+                    type="email"
+                    value={editingTeacher.email}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, email: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    value={editingTeacher.phone || ''}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏛️ Previous Colleges Taught (one per line)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Enter each college on a new line"
+                  value={editingTeacher.previous_colleges || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, previous_colleges: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📖 Known Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Python, DBMS, Operating Systems, Cloud Computing"
+                  value={editingTeacher.known_subjects || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, known_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏫 Currently Teaching Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Web Development, Database Lab"
+                  value={editingTeacher.current_teaching_subjects || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, current_teaching_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
+                  Save Faculty Changes
+                </button>
+                <button type="button" onClick={() => setEditingTeacher(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
@@ -1035,17 +1423,117 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       {/* ADD STUDENT MODAL */}
       {showAddStudentModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left' }}>
+          <div className="modal-card" style={{ maxWidth: '500px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px 0' }}>+ Register New Student</h3>
             <form onSubmit={handleAddStudent}>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
-                <input type="text" placeholder="e.g. 2585351122" value={newStudent.roll_no} onChange={(e) => setNewStudent({ ...newStudent, roll_no: e.target.value.toUpperCase() })} style={{ width: '100%', padding: '10px' }} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2585351122"
+                    value={newStudent.roll_no}
+                    onChange={(e) => setNewStudent({ ...newStudent, roll_no: e.target.value.toUpperCase() })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={newStudent.full_name}
+                    onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" placeholder="e.g. John Doe" value={newStudent.full_name} onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
+                  <select
+                    value={newStudent.dept_code}
+                    onChange={(e) => setNewStudent({ ...newStudent, dept_code: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="MCA">MCA</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="IT">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
+                  <select
+                    value={newStudent.year_level}
+                    onChange={(e) => setNewStudent({ ...newStudent, year_level: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Academic Period</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2024 - 2026"
+                    value={newStudent.academic_period}
+                    onChange={(e) => setNewStudent({ ...newStudent, academic_period: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 9876543210"
+                    value={newStudent.parent_phone}
+                    onChange={(e) => setNewStudent({ ...newStudent, parent_phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Programming Languages</label>
+                <input
+                  type="text"
+                  placeholder="Python, React.js, JavaScript"
+                  value={newStudent.programming_languages}
+                  onChange={(e) => setNewStudent({ ...newStudent, programming_languages: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Projects (one per line)</label>
+                <textarea
+                  rows="2"
+                  value={newStudent.projects}
+                  onChange={(e) => setNewStudent({ ...newStudent, projects: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Certificates (one per line)</label>
+                <textarea
+                  rows="2"
+                  value={newStudent.certificates}
+                  onChange={(e) => setNewStudent({ ...newStudent, certificates: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Student</button>
                 <button type="button" onClick={() => setShowAddStudentModal(false)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
@@ -1058,21 +1546,99 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       {/* ADD FACULTY MODAL */}
       {showAddTeacherModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left' }}>
+          <div className="modal-card" style={{ maxWidth: '500px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px 0' }}>+ Add Faculty Member</h3>
             <form onSubmit={handleAddTeacher}>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
-                <input type="text" placeholder="e.g. FAC202" value={newTeacher.teacher_id} onChange={(e) => setNewTeacher({ ...newTeacher, teacher_id: e.target.value.toUpperCase() })} style={{ width: '100%', padding: '10px' }} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. FAC202"
+                    value={newTeacher.teacher_id}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, teacher_id: e.target.value.toUpperCase() })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Prof. Alice"
+                    value={newTeacher.full_name}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" placeholder="e.g. Prof. Alice" value={newTeacher.full_name} onChange={(e) => setNewTeacher({ ...newTeacher, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. alice@college.edu"
+                    value={newTeacher.email}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 9876543210"
+                    value={newTeacher.phone}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
               </div>
+
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
-                <input type="email" placeholder="e.g. alice@college.edu" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Total Experience</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 6+ Years"
+                  value={newTeacher.total_experience}
+                  onChange={(e) => setNewTeacher({ ...newTeacher, total_experience: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
               </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Previous Colleges (one per line)</label>
+                <textarea
+                  rows="2"
+                  value={newTeacher.previous_colleges}
+                  onChange={(e) => setNewTeacher({ ...newTeacher, previous_colleges: e.target.value })}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Known Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  value={newTeacher.known_subjects}
+                  onChange={(e) => setNewTeacher({ ...newTeacher, known_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Currently Teaching (comma separated)</label>
+                <input
+                  type="text"
+                  value={newTeacher.current_teaching_subjects}
+                  onChange={(e) => setNewTeacher({ ...newTeacher, current_teaching_subjects: e.target.value })}
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Faculty</button>
                 <button type="button" onClick={() => setShowAddTeacherModal(false)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
