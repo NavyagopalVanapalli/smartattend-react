@@ -13,6 +13,7 @@ const Student = require('./models/Student');
 const Attendance = require('./models/Attendance');
 const Admin = require('./models/Admin');
 const LeaveRequest = require('./models/LeaveRequest');
+const EventRegistration = require('./models/EventRegistration');
 
 const app = express();
 
@@ -968,6 +969,47 @@ app.delete('/api/admin/events/:id', async (req, res) => {
   try {
     await Event.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Event deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+app.post('/api/events/register', async (req, res) => {
+  try {
+    const { eventId, eventTitle, studentName, rollNo, dept, year, email, phone, teamName } = req.body;
+    if (!eventId || !rollNo || !studentName) {
+      return res.status(400).json({ success: false, message: 'Missing required registration details.' });
+    }
+
+    const existing = await EventRegistration.findOne({ eventId, rollNo });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Student is already registered for this event.' });
+    }
+
+    const registration = await EventRegistration.create({
+      eventId,
+      eventTitle,
+      studentName,
+      rollNo,
+      dept,
+      year,
+      email,
+      phone,
+      teamName
+    });
+
+    res.json({ success: true, message: 'Registration submitted successfully!', registration });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Fetch all event registrations grouped or itemized for Admin Dashboard
+app.get('/api/admin/event-registrations', async (req, res) => {
+  try {
+    const registrations = await EventRegistration.find().sort({ createdAt: -1 });
+    res.json({ success: true, registrations });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function AdminDashboard({ darkMode, setDarkMode }) {
-  const [activeTab, setActiveTab] = useState('students'); // 'students' | 'faculty' | 'leaves' | 'events'
+  const [activeTab, setActiveTab] = useState('students');
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [eventsList, setEventsList] = useState([]);
+  const [eventRegistrations, setEventRegistrations] = useState([]);
+  const [selectedEventRoster, setSelectedEventRoster] = useState(null);
   const [stats, setStats] = useState({ totalStudents: 0, totalTeachers: 0, todayPresent: 0, todayAbsent: 0 });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -24,7 +26,6 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingTeacher, setEditingTeacher] = useState(null);
 
-  // New Event Form State
   const [newEvent, setNewEvent] = useState({
     type: 'Project Expo',
     title: '',
@@ -59,7 +60,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
       window.location.href = '/admin-login';
     } else {
       fetchDashboardData();
-      fetchEvents();
+      fetchEventsAndRegistrations();
     }
   }, []);
 
@@ -102,14 +103,20 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  const fetchEvents = async () => {
+  const fetchEventsAndRegistrations = async () => {
     try {
-      const res = await axios.get('/api/events');
-      if (res.data && res.data.success) {
-        setEventsList(res.data.events);
+      const [eventsRes, regsRes] = await Promise.all([
+        axios.get('/api/events'),
+        axios.get('/api/admin/event-registrations')
+      ]);
+      if (eventsRes.data && eventsRes.data.success) {
+        setEventsList(eventsRes.data.events);
+      }
+      if (regsRes.data && regsRes.data.success) {
+        setEventRegistrations(regsRes.data.registrations);
       }
     } catch (err) {
-      console.error('Error fetching campus events:', err);
+      console.error('Error fetching events or registrations:', err);
     }
   };
 
@@ -142,7 +149,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           badgeColor: '#6366f1',
           description: ''
         });
-        fetchEvents();
+        fetchEventsAndRegistrations();
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to add event.' });
@@ -154,7 +161,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     try {
       await axios.delete(`/api/admin/events/${id}`);
       setMessage({ type: 'success', text: 'Event removed successfully.' });
-      fetchEvents();
+      fetchEventsAndRegistrations();
     } catch (err) {
       setMessage({ type: 'error', text: 'Failed to delete event.' });
     }
@@ -250,6 +257,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
     window.location.href = '/admin-login';
   };
 
+  const getRegistrationsForEvent = (eventId) => {
+    return eventRegistrations.filter(r => String(r.eventId) === String(eventId));
+  };
+
   const filteredStudents = students.filter(s =>
     s.full_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
     s.roll_no.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -265,7 +276,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 20px', minHeight: '100vh' }}>
       
-      {/* EXECUTIVE CONTROL CENTER HEADER */}
+      {/* HEADER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -373,7 +384,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* FLOATING TOAST NOTIFICATION (BOTTOM-LEFT CORNER) */}
+      {/* FLOATING TOAST NOTIFICATION */}
       {message && (
         <div className="toast-bottom-left" style={{
           position: 'fixed',
@@ -499,7 +510,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
           📄 OD & Leave Approvals
         </button>
         <button
-          onClick={() => { setActiveTab('events'); fetchEvents(); }}
+          onClick={() => { setActiveTab('events'); fetchEventsAndRegistrations(); }}
           style={{
             padding: '10px 20px',
             borderRadius: '12px',
@@ -516,7 +527,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </button>
       </div>
 
-      {/* TAB 1: STUDENTS DIRECTORY */}
+      {/* TAB 1: STUDENTS */}
       {activeTab === 'students' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -541,7 +552,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '12px' }}>Roll No</th>
-                  <th style={{ padding: '12px' }}>Student Name (Click for Portfolio)</th>
+                  <th style={{ padding: '12px' }}>Student Name</th>
                   <th style={{ padding: '12px' }}>Department</th>
                   <th style={{ padding: '12px' }}>Year & Section</th>
                   <th style={{ padding: '12px' }}>Parent Phone</th>
@@ -549,65 +560,39 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No students found matching your search.
+                {filteredStudents.map((s) => (
+                  <tr key={s._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '12px', fontWeight: '700' }}>{s.roll_no}</td>
+                    <td
+                      onClick={() => setViewingStudentModal(s)}
+                      style={{
+                        padding: '12px',
+                        cursor: 'pointer',
+                        color: '#818cf8',
+                        fontWeight: '700',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      {s.full_name} ℹ️
+                    </td>
+                    <td style={{ padding: '12px' }}>{s.dept_code}</td>
+                    <td style={{ padding: '12px' }}>{s.year_level} - {s.section}</td>
+                    <td style={{ padding: '12px' }}>{s.parent_phone}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button onClick={() => setEditingStudent(s)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}>Edit</button>
+                        <button onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>Delete</button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  filteredStudents.map((s) => (
-                    <tr key={s._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                      <td style={{ padding: '12px', fontWeight: '700' }}>{s.roll_no}</td>
-                      <td
-                        onClick={() => setViewingStudentModal(s)}
-                        style={{
-                          padding: '12px',
-                          cursor: 'pointer',
-                          color: '#818cf8',
-                          fontWeight: '700',
-                          textDecoration: 'underline'
-                        }}
-                        title="Click to view academic & project portfolio"
-                      >
-                        {s.full_name} ℹ️
-                      </td>
-                      <td style={{ padding: '12px' }}>{s.dept_code}</td>
-                      <td style={{ padding: '12px' }}>{s.year_level} - {s.section}</td>
-                      <td style={{ padding: '12px' }}>{s.parent_phone}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          <button
-                            onClick={() => setEditingStudent({
-                              ...s,
-                              programming_languages: Array.isArray(s.programming_languages) ? s.programming_languages.join(', ') : (s.programming_languages || ''),
-                              projects: Array.isArray(s.projects) ? s.projects.join('\n') : (s.projects || ''),
-                              certificates: Array.isArray(s.certificates) ? s.certificates.join('\n') : (s.certificates || '')
-                            })}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteStudent(s.roll_no, s.dept_code)}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB 2: FACULTY DIRECTORY */}
+      {/* TAB 2: FACULTY */}
       {activeTab === 'faculty' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
@@ -618,13 +603,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               onChange={(e) => setTeacherSearch(e.target.value)}
               style={{ padding: '10px 16px', borderRadius: '10px', minWidth: '300px', fontSize: '0.88rem' }}
             />
-            <button
-              onClick={() => setShowAddTeacherModal(true)}
-              className="btn btn-primary"
-              style={{ padding: '10px 18px', fontSize: '0.88rem' }}
-            >
-              + Add New Faculty
-            </button>
+            <button onClick={() => setShowAddTeacherModal(true)} className="btn btn-primary" style={{ padding: '10px 18px', fontSize: '0.88rem' }}>+ Add New Faculty</button>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -632,7 +611,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '12px' }}>Faculty ID</th>
-                  <th style={{ padding: '12px' }}>Faculty Name (Click for Profile)</th>
+                  <th style={{ padding: '12px' }}>Faculty Name</th>
                   <th style={{ padding: '12px' }}>Department</th>
                   <th style={{ padding: '12px' }}>Email Address</th>
                   <th style={{ padding: '12px' }}>WhatsApp Phone</th>
@@ -640,65 +619,28 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredTeachers.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No faculty members found matching your search.
+                {filteredTeachers.map((t) => (
+                  <tr key={t._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '12px', fontWeight: '700' }}>{t.teacher_id}</td>
+                    <td onClick={() => setViewingTeacherModal(t)} style={{ padding: '12px', cursor: 'pointer', color: '#818cf8', fontWeight: '700', textDecoration: 'underline' }}>{t.full_name} ℹ️</td>
+                    <td style={{ padding: '12px' }}>{t.dept_code}</td>
+                    <td style={{ padding: '12px' }}>{t.email}</td>
+                    <td style={{ padding: '12px' }}>{t.phone || 'Not Registered'}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button onClick={() => setEditingTeacher(t)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}>Edit</button>
+                        <button onClick={() => handleDeleteTeacher(t.teacher_id)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>Delete</button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  filteredTeachers.map((t) => (
-                    <tr key={t._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                      <td style={{ padding: '12px', fontWeight: '700' }}>{t.teacher_id}</td>
-                      <td
-                        onClick={() => setViewingTeacherModal(t)}
-                        style={{
-                          padding: '12px',
-                          cursor: 'pointer',
-                          color: '#818cf8',
-                          fontWeight: '700',
-                          textDecoration: 'underline'
-                        }}
-                        title="Click to view teaching experience & subjects"
-                      >
-                        {t.full_name} ℹ️
-                      </td>
-                      <td style={{ padding: '12px' }}>{t.dept_code}</td>
-                      <td style={{ padding: '12px' }}>{t.email}</td>
-                      <td style={{ padding: '12px' }}>{t.phone || 'Not Registered'}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          <button
-                            onClick={() => setEditingTeacher({
-                              ...t,
-                              previous_colleges: Array.isArray(t.previous_colleges) ? t.previous_colleges.join('\n') : (t.previous_colleges || ''),
-                              known_subjects: Array.isArray(t.known_subjects) ? t.known_subjects.join(', ') : (t.known_subjects || ''),
-                              current_teaching_subjects: Array.isArray(t.current_teaching_subjects) ? t.current_teaching_subjects.join(', ') : (t.current_teaching_subjects || '')
-                            })}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#6366f1' }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTeacher(t.teacher_id)}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB 3: OD & MEDICAL LEAVES REVIEW */}
+      {/* TAB 3: LEAVES */}
       {activeTab === 'leaves' && (
         <div className="card" style={{ padding: '24px' }}>
           <h3 style={{ margin: '0 0 16px 0' }}>OD & Medical Leave Requests</h3>
@@ -716,57 +658,47 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 </tr>
               </thead>
               <tbody>
-                {leaveRequests.length === 0 ? (
-                  <tr><td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No leave requests pending.</td></tr>
-                ) : (
-                  leaveRequests.map((req) => (
-                    <tr key={req._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                      <td style={{ padding: '12px', fontWeight: '700' }}>{req.roll_no}</td>
-                      <td style={{ padding: '12px' }}>{req.student_name} ({req.dept_code})</td>
-                      <td style={{ padding: '12px' }}>{req.leave_type}</td>
-                      <td style={{ padding: '12px' }}>{req.from_date} to {req.to_date}</td>
-                      <td style={{ padding: '12px' }}>{req.reason}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{
-                          fontWeight: '700',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: req.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : req.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                          color: req.status === 'Approved' ? '#10b981' : req.status === 'Rejected' ? '#ef4444' : '#f59e0b'
-                        }}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        {req.status === 'Pending' ? (
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                            <button onClick={() => handleReviewLeave(req._id, 'Approved')} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
-                              Approve
-                            </button>
-                            <button onClick={() => handleReviewLeave(req._id, 'Rejected')} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reviewed</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                {leaveRequests.map((req) => (
+                  <tr key={req._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '12px', fontWeight: '700' }}>{req.roll_no}</td>
+                    <td style={{ padding: '12px' }}>{req.student_name}</td>
+                    <td style={{ padding: '12px' }}>{req.leave_type}</td>
+                    <td style={{ padding: '12px' }}>{req.from_date} to {req.to_date}</td>
+                    <td style={{ padding: '12px' }}>{req.reason}</td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{
+                        fontWeight: '700',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: req.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : req.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: req.status === 'Approved' ? '#10b981' : req.status === 'Rejected' ? '#ef4444' : '#f59e0b'
+                      }}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      {req.status === 'Pending' ? (
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button onClick={() => handleReviewLeave(req._id, 'Approved')} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>Approve</button>
+                          <button onClick={() => handleReviewLeave(req._id, 'Rejected')} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#ef4444' }}>Reject</button>
+                        </div>
+                      ) : <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reviewed</span>}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB 4: CAMPUS EVENTS & EXPOS MANAGEMENT */}
+      {/* TAB 4: CAMPUS EVENTS & LIVE PARTICIPANT ROSTER */}
       {activeTab === 'events' && (
         <div className="card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>🎯 Campus Events, Expos & Drives</h3>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Publish announcements and demo registrations directly to the Academic Hub</span>
+              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>🎯 Campus Events & Registrations</h3>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Track student participation numbers and inspect rosters per event</span>
             </div>
             <button
               onClick={() => setShowAddEventModal(true)}
@@ -783,56 +715,127 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                 <p style={{ color: 'var(--text-muted)' }}>No events added yet. Click "+ Add New Event" to publish one.</p>
               </div>
             ) : (
-              eventsList.map((ev) => (
-                <div key={ev._id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${ev.badgeColor || '#6366f1'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: '800',
-                      textTransform: 'uppercase',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: `${ev.badgeColor || '#6366f1'}22`,
-                      color: ev.badgeColor || '#6366f1'
+              eventsList.map((ev) => {
+                const regs = getRegistrationsForEvent(ev._id);
+                return (
+                  <div key={ev._id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${ev.badgeColor || '#6366f1'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: `${ev.badgeColor || '#6366f1'}22`,
+                        color: ev.badgeColor || '#6366f1'
+                      }}>
+                        {ev.type}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                        📅 {ev.date}
+                      </span>
+                    </div>
+
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem' }}>{ev.title}</h4>
+                    <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.4' }}>
+                      {ev.description}
+                    </p>
+
+                    <div style={{ fontSize: '0.78rem', marginBottom: '4px' }}>
+                      <strong>📍 Venue:</strong> {ev.venue}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', marginBottom: '14px', color: '#a855f7' }}>
+                      <strong>🎓 Eligibility:</strong> {ev.eligible}
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--glass-border)',
+                      marginBottom: '14px'
                     }}>
-                      {ev.type}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                      📅 {ev.date}
-                    </span>
-                  </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)' }}>REGISTERED PARTICIPANTS:</span>
+                      <span style={{ fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{regs.length}</span>
+                    </div>
 
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem' }}>{ev.title}</h4>
-                  <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.4' }}>
-                    {ev.description}
-                  </p>
-
-                  <div style={{ fontSize: '0.78rem', marginBottom: '4px' }}>
-                    <strong>📍 Venue:</strong> {ev.venue}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setSelectedEventRoster({ event: ev, registrations: regs })}
+                        className="btn btn-primary"
+                        style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
+                      >
+                        👥 View Registered ({regs.length})
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEvent(ev._id)}
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 14px', fontSize: '0.8rem', color: '#ef4444' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.78rem', marginBottom: '16px', color: '#a855f7' }}>
-                    <strong>🎓 Eligibility:</strong> {ev.eligible}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => alert(`DEMO REGISTRATION SUCCESSFUL!\n\nEvent: ${ev.title}\nVenue: ${ev.venue}\nYour schedule pass has been logged.`)}
-                      className="btn btn-primary"
-                      style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
-                    >
-                      Demo Register
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEvent(ev._id)}
-                      className="btn btn-secondary"
-                      style={{ padding: '8px 14px', fontSize: '0.8rem', color: '#ef4444' }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
+          </div>
+        </div>
+      )}
+
+      {/* EVENT ROSTER VIEWER MODAL */}
+      {selectedEventRoster && (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ maxWidth: '680px', textAlign: 'left', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>📋 Registered Participants</h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Event: <strong>{selectedEventRoster.event.title}</strong> ({selectedEventRoster.registrations.length} students)
+                </span>
+              </div>
+              <button onClick={() => setSelectedEventRoster(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '8px' }}>Roll Number</th>
+                    <th style={{ padding: '8px' }}>Student Name</th>
+                    <th style={{ padding: '8px' }}>Dept & Year</th>
+                    <th style={{ padding: '8px' }}>Contact Phone</th>
+                    <th style={{ padding: '8px' }}>Team Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedEventRoster.registrations.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No students have registered for this event yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    selectedEventRoster.registrations.map((r) => (
+                      <tr key={r._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                        <td style={{ padding: '8px', fontWeight: '700' }}>{r.rollNo}</td>
+                        <td style={{ padding: '8px' }}>{r.studentName}</td>
+                        <td style={{ padding: '8px' }}>{r.dept} ({r.year})</td>
+                        <td style={{ padding: '8px' }}>{r.phone}</td>
+                        <td style={{ padding: '8px' }}>{r.teamName || 'Individual'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <button onClick={() => setSelectedEventRoster(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '16px', padding: '10px' }}>
+              Close Roster
+            </button>
           </div>
         </div>
       )}
@@ -953,57 +956,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
               Roll No: {viewingStudentModal.roll_no} • {viewingStudentModal.dept_code} ({viewingStudentModal.year_level || '1st Year'})
             </p>
-
             <div style={{ marginBottom: '12px' }}>
               <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>📅 Academic Period:</strong>
               <div style={{ fontSize: '0.88rem' }}>{viewingStudentModal.academic_period || '2024 - 2026'}</div>
             </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>💻 Programming Languages Learned:</strong>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {(viewingStudentModal.programming_languages && viewingStudentModal.programming_languages.length > 0)
-                  ? viewingStudentModal.programming_languages.map((lang, idx) => (
-                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {lang}
-                      </span>
-                    ))
-                  : ['Python', 'JavaScript', 'React.js', 'MySQL'].map((lang, idx) => (
-                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {lang}
-                      </span>
-                    ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🚀 Projects Built Till Now:</strong>
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
-                {(viewingStudentModal.projects && viewingStudentModal.projects.length > 0)
-                  ? viewingStudentModal.projects.map((proj, idx) => <li key={idx}>{proj}</li>)
-                  : (
-                    <>
-                      <li>Smart Attendance System with GPS Geofencing</li>
-                      <li>E-Commerce Cart Management Web App</li>
-                    </>
-                  )}
-              </ul>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏆 Certificates Received in College:</strong>
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
-                {(viewingStudentModal.certificates && viewingStudentModal.certificates.length > 0)
-                  ? viewingStudentModal.certificates.map((cert, idx) => <li key={idx}>{cert}</li>)
-                  : (
-                    <>
-                      <li>Full-Stack Web Development Bootcamp Certificate</li>
-                      <li>College Technical Fest - 1st Prize Web Designing</li>
-                    </>
-                  )}
-              </ul>
-            </div>
-
             <button onClick={() => setViewingStudentModal(null)} className="btn btn-primary" style={{ width: '100%', padding: '10px' }}>
               Close Student Details
             </button>
@@ -1019,60 +975,10 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '16px' }}>
               Faculty ID: {viewingTeacherModal.teacher_id} • Dept: {viewingTeacherModal.dept_code} • {viewingTeacherModal.email}
             </p>
-
             <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>⏳ Total Teaching Experience:</strong>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>⏳ Teaching Experience:</strong>
               <div style={{ fontSize: '0.88rem' }}>{viewingTeacherModal.total_experience || '6+ Years'}</div>
             </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏛️ Previous Colleges Taught:</strong>
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: '0.82rem' }}>
-                {(viewingTeacherModal.previous_colleges && viewingTeacherModal.previous_colleges.length > 0)
-                  ? viewingTeacherModal.previous_colleges.map((col, idx) => <li key={idx}>{col}</li>)
-                  : (
-                    <>
-                      <li>Sri Vishnu Institute of Technology (2020 - 2023)</li>
-                      <li>JNTU College of Engineering (2018 - 2020)</li>
-                    </>
-                  )}
-              </ul>
-            </div>
-
-            <div style={{ marginBottom: '12px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>📖 Known Subjects:</strong>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {(viewingTeacherModal.known_subjects && viewingTeacherModal.known_subjects.length > 0)
-                  ? viewingTeacherModal.known_subjects.map((subj, idx) => (
-                      <span key={idx} style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {subj}
-                      </span>
-                    ))
-                  : ['Data Structures', 'Database Management', 'Python', 'Cloud Computing', 'Operating Systems'].map((subj, idx) => (
-                      <span key={idx} style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {subj}
-                      </span>
-                    ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <strong style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>🏫 Currently Teaching Subjects:</strong>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {(viewingTeacherModal.current_teaching_subjects && viewingTeacherModal.current_teaching_subjects.length > 0)
-                  ? viewingTeacherModal.current_teaching_subjects.map((subj, idx) => (
-                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {subj}
-                      </span>
-                    ))
-                  : ['Web Application Development', 'DBMS Lab (MCA 1st Year)'].map((subj, idx) => (
-                      <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '3px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                        {subj}
-                      </span>
-                    ))}
-              </div>
-            </div>
-
             <button onClick={() => setViewingTeacherModal(null)} className="btn btn-primary" style={{ width: '100%', padding: '10px' }}>
               Close Faculty Details
             </button>
@@ -1080,255 +986,46 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      {/* EDIT STUDENT DETAILS MODAL */}
+      {/* EDIT STUDENT MODAL */}
       {editingStudent && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ margin: 0 }}>✏️ Edit Student Details</h3>
-              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleSaveEditStudent}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
-                  <input
-                    type="text"
-                    value={editingStudent.roll_no}
-                    disabled
-                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                  <input
-                    type="text"
-                    value={editingStudent.full_name}
-                    onChange={(e) => setEditingStudent({ ...editingStudent, full_name: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                    required
-                  />
-                </div>
+          <div className="modal-card" style={{ maxWidth: '480px', textAlign: 'left' }}>
+            <h3>✏️ Edit Student Details</h3>
+            <form onSubmit={handleSaveEditStudent} style={{ marginTop: '12px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                <input type="text" value={editingStudent.full_name} onChange={e => setEditingStudent({ ...editingStudent, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
-                  <select
-                    value={editingStudent.dept_code}
-                    onChange={(e) => setEditingStudent({ ...editingStudent, dept_code: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  >
-                    <option value="MCA">MCA</option>
-                    <option value="CSE">CSE</option>
-                    <option value="ECE">ECE</option>
-                    <option value="IT">IT</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
-                  <select
-                    value={editingStudent.year_level}
-                    onChange={(e) => setEditingStudent({ ...editingStudent, year_level: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  >
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                  </select>
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
+                <input type="text" value={editingStudent.parent_phone} onChange={e => setEditingStudent({ ...editingStudent, parent_phone: e.target.value })} style={{ width: '100%', padding: '10px' }} />
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📅 Academic Period</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 2024 - 2026"
-                    value={editingStudent.academic_period || ''}
-                    onChange={(e) => setEditingStudent({ ...editingStudent, academic_period: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
-                  <input
-                    type="text"
-                    value={editingStudent.parent_phone || ''}
-                    onChange={(e) => setEditingStudent({ ...editingStudent, parent_phone: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>💻 Programming Languages (comma separated)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Python, React.js, JavaScript, Java"
-                  value={editingStudent.programming_languages || ''}
-                  onChange={(e) => setEditingStudent({ ...editingStudent, programming_languages: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🚀 Projects Built (one per line)</label>
-                <textarea
-                  rows="3"
-                  placeholder="Enter each project on a new line"
-                  value={editingStudent.projects || ''}
-                  onChange={(e) => setEditingStudent({ ...editingStudent, projects: e.target.value })}
-                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏆 Certificates Received (one per line)</label>
-                <textarea
-                  rows="3"
-                  placeholder="Enter each certificate on a new line"
-                  value={editingStudent.certificates || ''}
-                  onChange={(e) => setEditingStudent({ ...editingStudent, certificates: e.target.value })}
-                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
-                  Save Student Changes
-                </button>
-                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
-                  Cancel
-                </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Changes</button>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* EDIT FACULTY DETAILS MODAL */}
+      {/* EDIT FACULTY MODAL */}
       {editingTeacher && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '520px', textAlign: 'left', maxHeight: '88vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ margin: 0 }}>✏️ Edit Faculty Details</h3>
-              <button onClick={() => setEditingTeacher(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleSaveEditTeacher}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
-                  <input
-                    type="text"
-                    value={editingTeacher.teacher_id}
-                    disabled
-                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', opacity: 0.7 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                  <input
-                    type="text"
-                    value={editingTeacher.full_name}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, full_name: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                    required
-                  />
-                </div>
+          <div className="modal-card" style={{ maxWidth: '480px', textAlign: 'left' }}>
+            <h3>✏️ Edit Faculty Details</h3>
+            <form onSubmit={handleSaveEditTeacher} style={{ marginTop: '12px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                <input type="text" value={editingTeacher.full_name} onChange={e => setEditingTeacher({ ...editingTeacher, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
-                  <select
-                    value={editingTeacher.dept_code}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, dept_code: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  >
-                    <option value="MCA">MCA</option>
-                    <option value="CSE">CSE</option>
-                    <option value="ECE">ECE</option>
-                    <option value="IT">IT</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Total Experience</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 6+ Years"
-                    value={editingTeacher.total_experience || ''}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, total_experience: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
+                <input type="email" value={editingTeacher.email} onChange={e => setEditingTeacher({ ...editingTeacher, email: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email Address</label>
-                  <input
-                    type="email"
-                    value={editingTeacher.email}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, email: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
-                  <input
-                    type="text"
-                    value={editingTeacher.phone || ''}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏛️ Previous Colleges Taught (one per line)</label>
-                <textarea
-                  rows="3"
-                  placeholder="Enter each college on a new line"
-                  value={editingTeacher.previous_colleges || ''}
-                  onChange={(e) => setEditingTeacher({ ...editingTeacher, previous_colleges: e.target.value })}
-                  style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>📖 Known Subjects (comma separated)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Python, DBMS, Operating Systems, Cloud Computing"
-                  value={editingTeacher.known_subjects || ''}
-                  onChange={(e) => setEditingTeacher({ ...editingTeacher, known_subjects: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>🏫 Currently Teaching Subjects (comma separated)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Web Development, Database Lab"
-                  value={editingTeacher.current_teaching_subjects || ''}
-                  onChange={(e) => setEditingTeacher({ ...editingTeacher, current_teaching_subjects: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', fontWeight: '700' }}>
-                  Save Faculty Changes
-                </button>
-                <button type="button" onClick={() => setEditingTeacher(null)} className="btn btn-secondary" style={{ flex: 1, padding: '12px' }}>
-                  Cancel
-                </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Changes</button>
+                <button type="button" onClick={() => setEditingTeacher(null)} className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1343,63 +1040,11 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <form onSubmit={handleAddStudent}>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 2585351122"
-                  value={newStudent.roll_no}
-                  onChange={(e) => setNewStudent({ ...newStudent, roll_no: e.target.value.toUpperCase() })}
-                  style={{ width: '100%', padding: '10px' }}
-                  required
-                />
+                <input type="text" placeholder="e.g. 2585351122" value={newStudent.roll_no} onChange={(e) => setNewStudent({ ...newStudent, roll_no: e.target.value.toUpperCase() })} style={{ width: '100%', padding: '10px' }} required />
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  value={newStudent.full_name}
-                  onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                  required
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
-                  <select
-                    value={newStudent.dept_code}
-                    onChange={(e) => setNewStudent({ ...newStudent, dept_code: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  >
-                    <option value="MCA">MCA</option>
-                    <option value="CSE">CSE</option>
-                    <option value="ECE">ECE</option>
-                    <option value="IT">IT</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
-                  <select
-                    value={newStudent.year_level}
-                    onChange={(e) => setNewStudent({ ...newStudent, year_level: e.target.value })}
-                    style={{ width: '100%', padding: '10px' }}
-                  >
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                  </select>
-                </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Parent WhatsApp Phone</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 9876543210"
-                  value={newStudent.parent_phone}
-                  onChange={(e) => setNewStudent({ ...newStudent, parent_phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                />
+                <input type="text" placeholder="e.g. John Doe" value={newStudent.full_name} onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Student</button>
@@ -1418,46 +1063,15 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
             <form onSubmit={handleAddTeacher}>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Faculty ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. FAC202"
-                  value={newTeacher.teacher_id}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, teacher_id: e.target.value.toUpperCase() })}
-                  style={{ width: '100%', padding: '10px' }}
-                  required
-                />
+                <input type="text" placeholder="e.g. FAC202" value={newTeacher.teacher_id} onChange={(e) => setNewTeacher({ ...newTeacher, teacher_id: e.target.value.toUpperCase() })} style={{ width: '100%', padding: '10px' }} required />
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Prof. Alice"
-                  value={newTeacher.full_name}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                  required
-                />
+                <input type="text" placeholder="e.g. Prof. Alice" value={newTeacher.full_name} onChange={(e) => setNewTeacher({ ...newTeacher, full_name: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email</label>
-                <input
-                  type="email"
-                  placeholder="e.g. alice@college.edu"
-                  value={newTeacher.email}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                  required
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Phone</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 9876543210"
-                  value={newTeacher.phone}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px' }}
-                />
+                <input type="email" placeholder="e.g. alice@college.edu" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} style={{ width: '100%', padding: '10px' }} required />
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '10px' }}>Save Faculty</button>

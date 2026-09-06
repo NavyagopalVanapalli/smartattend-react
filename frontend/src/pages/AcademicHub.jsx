@@ -99,15 +99,14 @@ const QUIZ_BANKS = {
 export default function AcademicHub() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('resources'); // 'resources' | 'events' | 'quizzes'
+  const [activeTab, setActiveTab] = useState('resources');
   const [resources, setResources] = useState(INITIAL_RESOURCES);
   const [events, setEvents] = useState(PRESET_EVENTS);
   const [resourceSearch, setResourceSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
 
-  // Event Registration Form Modal States
   const [registeringEvent, setRegisteringEvent] = useState(null);
-  const [demoRegForm, setDemoRegForm] = useState({
+  const [regForm, setRegForm] = useState({
     studentName: '',
     rollNo: '',
     dept: 'MCA',
@@ -118,19 +117,17 @@ export default function AcademicHub() {
   });
   const [regSuccessMessage, setRegSuccessMessage] = useState(null);
 
-  // Quiz States
   const [activeQuizCategory, setActiveQuizCategory] = useState('python');
   const [userAnswers, setUserAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   useEffect(() => {
-    // 1. Resolve User Identity across all login pathways
-    const activeAdmin = localStorage.getItem('isAdminLoggedIn') === "true";
+    const isAdmin = localStorage.getItem('isAdminLoggedIn') === "true";
     const teacherSession = JSON.parse(localStorage.getItem("activeTeacher") || localStorage.getItem("teacher_session") || "{}");
     const hubUser = JSON.parse(localStorage.getItem('hub_user') || "{}");
     const linkedStudent = JSON.parse(localStorage.getItem('student_profile') || "{}");
 
-    if (activeAdmin) {
+    if (isAdmin) {
       setCurrentUser({
         name: 'Administrator',
         id: 'ADMIN01',
@@ -162,8 +159,7 @@ export default function AcademicHub() {
         year: linkedStudent.year_level || '1st Year',
         role: 'Student'
       });
-      // Pre-fill demo form with known student info
-      setDemoRegForm(prev => ({
+      setRegForm(prev => ({
         ...prev,
         studentName: linkedStudent.full_name,
         rollNo: linkedStudent.roll_no,
@@ -184,7 +180,7 @@ export default function AcademicHub() {
         setResources([...res.data.resources, ...INITIAL_RESOURCES]);
       }
     } catch (err) {
-      console.error('Error loading resources:', err);
+      console.error('Error fetching resources:', err);
     }
   };
 
@@ -195,7 +191,7 @@ export default function AcademicHub() {
         setEvents([...res.data.events, ...PRESET_EVENTS]);
       }
     } catch (err) {
-      console.error('Error loading events:', err);
+      console.error('Error fetching live events:', err);
     }
   };
 
@@ -251,11 +247,11 @@ export default function AcademicHub() {
     }
   };
 
-  const handleOpenDemoModal = (event) => {
+  const handleOpenRegistrationModal = (event) => {
     setRegisteringEvent(event);
     setRegSuccessMessage(null);
     if (currentUser && currentUser.role === 'Student') {
-      setDemoRegForm(prev => ({
+      setRegForm(prev => ({
         ...prev,
         studentName: currentUser.name,
         rollNo: currentUser.id,
@@ -264,13 +260,24 @@ export default function AcademicHub() {
     }
   };
 
-  const handleSubmitDemoRegistration = (e) => {
+  const handleSubmitRegistration = async (e) => {
     e.preventDefault();
-    setRegSuccessMessage(`🎉 Demo Registration Confirmed for ${demoRegForm.studentName} (${demoRegForm.rollNo}) in "${registeringEvent.title}"! Pass sent to ${demoRegForm.email || 'student email'}.`);
-    setTimeout(() => {
-      setRegisteringEvent(null);
-      setRegSuccessMessage(null);
-    }, 2800);
+    try {
+      const res = await axios.post('/api/events/register', {
+        eventId: registeringEvent._id,
+        eventTitle: registeringEvent.title,
+        ...regForm
+      });
+      if (res.data.success) {
+        setRegSuccessMessage(`🎉 Confirmed! ${regForm.studentName} (${regForm.rollNo}) is registered for "${registeringEvent.title}".`);
+        setTimeout(() => {
+          setRegisteringEvent(null);
+          setRegSuccessMessage(null);
+        }, 2500);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Registration failed.');
+    }
   };
 
   const filteredResources = resources.filter((res) => {
@@ -299,7 +306,7 @@ export default function AcademicHub() {
   return (
     <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
       
-      {/* USER PROFILE HEADER BANNER */}
+      {/* HEADER BANNER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -483,7 +490,7 @@ export default function AcademicHub() {
               </div>
 
               <button
-                onClick={() => handleOpenDemoModal(event)}
+                onClick={() => handleOpenRegistrationModal(event)}
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '9px', fontSize: '0.82rem' }}
               >
@@ -622,7 +629,7 @@ export default function AcademicHub() {
         </div>
       )}
 
-      {/* DEMO EVENT REGISTRATION MODAL FORM */}
+      {/* REGISTRATION MODAL FORM */}
       {registeringEvent && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '440px', textAlign: 'left' }}>
@@ -643,15 +650,15 @@ export default function AcademicHub() {
                 {regSuccessMessage}
               </div>
             ) : (
-              <form onSubmit={handleSubmitDemoRegistration}>
+              <form onSubmit={handleSubmitRegistration}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                   <div>
                     <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Student Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. John Doe"
-                      value={demoRegForm.studentName}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, studentName: e.target.value })}
+                      placeholder="Full Name"
+                      value={regForm.studentName}
+                      onChange={e => setRegForm({ ...regForm, studentName: e.target.value })}
                       style={{ width: '100%', padding: '9px' }}
                       required
                     />
@@ -660,9 +667,9 @@ export default function AcademicHub() {
                     <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Roll Number</label>
                     <input
                       type="text"
-                      placeholder="e.g. 2585351122"
-                      value={demoRegForm.rollNo}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, rollNo: e.target.value.toUpperCase() })}
+                      placeholder="Roll Number"
+                      value={regForm.rollNo}
+                      onChange={e => setRegForm({ ...regForm, rollNo: e.target.value.toUpperCase() })}
                       style={{ width: '100%', padding: '9px' }}
                       required
                     />
@@ -673,8 +680,8 @@ export default function AcademicHub() {
                   <div>
                     <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Department</label>
                     <select
-                      value={demoRegForm.dept}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, dept: e.target.value })}
+                      value={regForm.dept}
+                      onChange={e => setRegForm({ ...regForm, dept: e.target.value })}
                       style={{ width: '100%', padding: '9px' }}
                     >
                       <option value="MCA">MCA</option>
@@ -686,8 +693,8 @@ export default function AcademicHub() {
                   <div>
                     <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Year Level</label>
                     <select
-                      value={demoRegForm.year}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, year: e.target.value })}
+                      value={regForm.year}
+                      onChange={e => setRegForm({ ...regForm, year: e.target.value })}
                       style={{ width: '100%', padding: '9px' }}
                     >
                       <option value="1st Year">1st Year</option>
@@ -703,8 +710,8 @@ export default function AcademicHub() {
                   <input
                     type="email"
                     placeholder="student@college.edu"
-                    value={demoRegForm.email}
-                    onChange={e => setDemoRegForm({ ...demoRegForm, email: e.target.value })}
+                    value={regForm.email}
+                    onChange={e => setRegForm({ ...regForm, email: e.target.value })}
                     style={{ width: '100%', padding: '9px' }}
                     required
                   />
@@ -715,28 +722,28 @@ export default function AcademicHub() {
                     <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>WhatsApp Number</label>
                     <input
                       type="tel"
-                      placeholder="9876543210"
+                      placeholder="10 Digits"
                       maxLength="10"
-                      value={demoRegForm.phone}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, phone: e.target.value })}
+                      value={regForm.phone}
+                      onChange={e => setRegForm({ ...regForm, phone: e.target.value })}
                       style={{ width: '100%', padding: '9px' }}
                       required
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Team / Project Name</label>
+                    <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Team Name (Optional)</label>
                     <input
                       type="text"
-                      placeholder="Optional (Team AI)"
-                      value={demoRegForm.teamName}
-                      onChange={e => setDemoRegForm({ ...demoRegForm, teamName: e.target.value })}
+                      placeholder="e.g. CodeSquad"
+                      value={regForm.teamName}
+                      onChange={e => setRegForm({ ...regForm, teamName: e.target.value })}
                       style={{ width: '100%', padding: '9px' }}
                     />
                   </div>
                 </div>
 
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontWeight: '700' }}>
-                  Submit Demo Registration →
+                  Submit Registration
                 </button>
               </form>
             )}
