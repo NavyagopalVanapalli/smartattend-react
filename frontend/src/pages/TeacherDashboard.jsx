@@ -47,6 +47,19 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleOpenHub = () => {
+    if (teacher) {
+      localStorage.setItem("hub_user", JSON.stringify({
+        role: 'faculty',
+        name: teacher.full_name,
+        id: teacher.teacher_id,
+        dept: teacher.dept_code,
+        year: 'Faculty'
+      }));
+    }
+    window.location.href = '/hub';
+  };
+
   const fetchUploadedResources = async () => {
     try {
       const res = await axios.get('/api/resources');
@@ -58,14 +71,12 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
     }
   };
 
-  // Convert PC/Phone File into Base64 Data URL
   const handleLocalFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check size (< 15MB)
-    if (file.size > 15 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'File too large! Max file size is 15MB.' });
+    if (file.size > 25 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'File too large! Max file size is 25MB.' });
       return;
     }
 
@@ -132,7 +143,7 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 16px', minHeight: '100vh' }}>
       
-      {/* HEADER WITH THEME TOGGLE & ACTIONS */}
+      {/* HEADER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -178,7 +189,7 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
           )}
 
           <button
-            onClick={() => window.location.href = '/hub'}
+            onClick={handleOpenHub}
             className="btn btn-secondary"
             style={{ padding: '8px 12px', fontSize: '0.82rem' }}
           >
@@ -276,7 +287,6 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📤 Publish Document to Hub</h3>
               
-              {/* FILE / LINK SWITCHER */}
               <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.06)', padding: '4px', borderRadius: '10px' }}>
                 <button
                   type="button"
@@ -381,7 +391,6 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
                 </div>
               </div>
 
-              {/* LOCAL FILE UPLOAD DRAG & DROP BOX */}
               {uploadMode === 'file' ? (
                 <div style={{ marginBottom: '18px' }}>
                   <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
@@ -408,7 +417,7 @@ export default function TeacherDashboard({ darkMode, setDarkMode }) {
                         {selectedFileName ? `Selected: ${selectedFileName}` : 'Click to Browse Files on this Computer'}
                       </div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {selectedFileName ? `File Size: ${newResource.size}` : 'Maximum file size: 15 MB'}
+                        {selectedFileName ? `File Size: ${newResource.size}` : 'Maximum file size: 25 MB'}
                       </span>
                     </label>
                   </div>

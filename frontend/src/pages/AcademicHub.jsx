@@ -120,26 +120,37 @@ export default function AcademicHub() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   useEffect(() => {
-    const linkedStudent = localStorage.getItem('student_profile');
+    // 1. Check Faculty Session first to prevent student override
+    const teacherSession = localStorage.getItem('teacher_session');
     const directHubUser = localStorage.getItem('hub_user');
+    const linkedStudent = localStorage.getItem('student_profile');
 
-    if (linkedStudent) {
-      const parsed = JSON.parse(linkedStudent);
+    if (teacherSession) {
+      const parsedTeacher = JSON.parse(teacherSession);
       setCurrentUser({
-        name: parsed.full_name,
-        id: parsed.roll_no,
-        dept: parsed.dept_code,
-        year: parsed.year_level || '1st Year',
-        role: 'Student'
+        name: parsedTeacher.full_name,
+        id: parsedTeacher.teacher_id,
+        dept: parsedTeacher.dept_code,
+        year: 'Faculty',
+        role: 'Faculty'
       });
     } else if (directHubUser) {
-      const parsed = JSON.parse(directHubUser);
+      const parsedHubUser = JSON.parse(directHubUser);
       setCurrentUser({
-        name: parsed.name,
-        id: parsed.id,
-        dept: parsed.dept,
-        year: parsed.year || '',
-        role: parsed.role === 'faculty' ? 'Faculty' : 'Student'
+        name: parsedHubUser.name,
+        id: parsedHubUser.id,
+        dept: parsedHubUser.dept,
+        year: parsedHubUser.year || (parsedHubUser.role === 'faculty' ? 'Faculty' : '1st Year'),
+        role: parsedHubUser.role === 'faculty' ? 'Faculty' : 'Student'
+      });
+    } else if (linkedStudent) {
+      const parsedStudent = JSON.parse(linkedStudent);
+      setCurrentUser({
+        name: parsedStudent.full_name,
+        id: parsedStudent.roll_no,
+        dept: parsedStudent.dept_code,
+        year: parsedStudent.year_level || '1st Year',
+        role: 'Student'
       });
     } else {
       navigate('/hub-login');
@@ -161,10 +172,10 @@ export default function AcademicHub() {
 
   const handleLogout = () => {
     localStorage.removeItem('hub_user');
+    localStorage.removeItem('teacher_session');
     navigate('/hub-login');
   };
 
-  // Safe universal file downloader that avoids about:blank#blocked
   const handleDownloadFile = (fileUrl, title) => {
     try {
       if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
@@ -255,20 +266,20 @@ export default function AcademicHub() {
             width: '42px',
             height: '42px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            background: currentUser?.role === 'Faculty' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '1.25rem',
             color: '#fff'
           }}>
-            🏛️
+            {currentUser?.role === 'Faculty' ? '👨‍🏫' : '🎓'}
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: 'clamp(1.2rem, 3.5vw, 1.4rem)', fontWeight: '800' }}>Academic Hub</h2>
             {currentUser && (
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Welcome, <strong>{currentUser.name}</strong> ({currentUser.id}) • {currentUser.dept} {currentUser.year}
+                Logged in as <strong>{currentUser.name}</strong> ({currentUser.id}) • {currentUser.dept} {currentUser.year !== 'Faculty' ? currentUser.year : ''} [{currentUser.role}]
               </span>
             )}
           </div>

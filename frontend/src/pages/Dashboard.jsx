@@ -17,6 +17,9 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
   const todayStr = getLocalTodayString();
 
+  // Drawer State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
   // Filters State - Defaults to local today
   const [filters, setFilters] = useState({
     dept: activeTeacher.dept_code || 'MCA',
@@ -168,33 +171,33 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   };
 
   const handleAddStudent = async (e) => {
-  e.preventDefault();
-  if (!studentForm.roll_no || !studentForm.full_name) {
-    alert("Please enter Roll Number and Full Name.");
-    return;
-  }
-
-  try {
-    const res = await axios.post('/api/admin/students', {
-      roll_no: studentForm.roll_no.trim(),
-      full_name: studentForm.full_name.trim(),
-      parent_phone: studentForm.parent_phone ? studentForm.parent_phone.trim() : '0000000000',
-      dept_code: filters.dept,
-      year_level: filters.year,
-      section: filters.sec
-    });
-
-    if (res.data.success) {
-      alert("✅ Student registered successfully!");
-      setIsAddStudentOpen(false);
-      setStudentForm({ roll_no: '', full_name: '', parent_phone: '' });
-      fetchStudentsAndAttendance();
+    e.preventDefault();
+    if (!studentForm.roll_no || !studentForm.full_name) {
+      alert("Please enter Roll Number and Full Name.");
+      return;
     }
-  } catch (err) {
-    const errorMsg = err.response?.data?.message || err.response?.data?.error || "Error adding student.";
-    alert("❌ " + errorMsg);
-  }
-};
+
+    try {
+      const res = await axios.post('/api/admin/students', {
+        roll_no: studentForm.roll_no.trim(),
+        full_name: studentForm.full_name.trim(),
+        parent_phone: studentForm.parent_phone ? studentForm.parent_phone.trim() : '0000000000',
+        dept_code: filters.dept,
+        year_level: filters.year,
+        section: filters.sec
+      });
+
+      if (res.data.success) {
+        alert("✅ Student registered successfully!");
+        setIsAddStudentOpen(false);
+        setStudentForm({ roll_no: '', full_name: '', parent_phone: '' });
+        fetchStudentsAndAttendance();
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Error adding student.";
+      alert("❌ " + errorMsg);
+    }
+  };
 
   const handleToggleAttendance = (rollNo) => {
     setAttendance(prev => {
@@ -293,6 +296,26 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
   };
 
+  // Explicitly syncs teacher credentials to the Hub so it displays the faculty's name
+  const handleOpenHub = () => {
+    setIsDrawerOpen(false);
+    localStorage.setItem("hub_user", JSON.stringify({
+      role: 'faculty',
+      name: activeTeacher.full_name || 'Faculty Instructor',
+      id: activeTeacher.teacher_id || 'FAC101',
+      dept: activeTeacher.dept_code || filters.dept,
+      year: 'Faculty'
+    }));
+    navigate('/hub');
+  };
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    localStorage.removeItem("teacher_session");
+    localStorage.removeItem("hub_user");
+    navigate('/');
+  };
+
   const filteredStudents = students.filter(s =>
     s.roll_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.full_name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -302,39 +325,149 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const absentStudents = students.filter(s => !attendance[s.roll_no]?.checked);
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '20px 15px' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '20px 15px', position: 'relative' }}>
       
-      {/* 1. TOP HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/Srivishnu_Logo.jpg" alt="Vishnu Logo" style={{ height: '42px', width: '42px', borderRadius: '8px' }} />
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>SmartAttend</h2>
+      {/* 1. SLIDE-OUT DRAWER BACKDROP */}
+      {isDrawerOpen && (
+        <div
+          onClick={() => setIsDrawerOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 10000
+          }}
+        />
+      )}
+
+      {/* 2. LEFT SLIDE-OUT DRAWER */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: '280px',
+        background: 'var(--card-bg-solid, #1e1b4b)',
+        borderRight: '1px solid var(--glass-border)',
+        boxShadow: '0 0 35px rgba(0,0,0,0.5)',
+        zIndex: 10001,
+        transform: isDrawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        padding: '24px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        color: 'var(--text-main)'
+      }}>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid var(--glass-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>⚡</div>
+              <strong style={{ fontSize: '1.1rem' }}>SmartAttend</strong>
+            </div>
+            <button onClick={() => setIsDrawerOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button
+              onClick={() => { setIsDrawerOpen(false); navigate('/admin-login'); }}
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start', padding: '12px 14px', width: '100%', fontSize: '0.88rem' }}
+            >
+              🛡️ Admin Panel
+            </button>
+
+            <button
+              onClick={handleOpenHub}
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start', padding: '12px 14px', width: '100%', fontSize: '0.88rem' }}
+            >
+              🏛️ Academic Hub
+            </button>
+
+            <button
+              onClick={() => { setIsDrawerOpen(false); navigate('/faculty-portal'); }}
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start', padding: '12px 14px', width: '100%', fontSize: '0.88rem' }}
+            >
+              👨‍🏫 Faculty Portal
+            </button>
+
+            <button
+              onClick={() => { setIsDrawerOpen(false); setIsPasswordModalOpen(true); }}
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start', padding: '12px 14px', width: '100%', fontSize: '0.88rem' }}
+            >
+              🔑 Change Password
+            </button>
+
+            {setDarkMode && (
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="btn btn-secondary"
+                style={{ justifyContent: 'flex-start', padding: '12px 14px', width: '100%', fontSize: '0.88rem' }}
+              >
+                {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+              </button>
+            )}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/admin-login')} className="btn btn-secondary" style={{ borderRadius: '20px', fontSize: '0.85rem' }}>
-            🛡️ Admin Panel
-          </button>
-          <button onClick={() => setIsPasswordModalOpen(true)} className="btn btn-secondary" style={{ borderRadius: '20px', fontSize: '0.85rem' }}>
-            🔑 Change Password
-          </button>
-          <button onClick={() => setDarkMode(!darkMode)} className="btn btn-secondary" style={{ borderRadius: '20px', fontSize: '0.85rem' }}>
-            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-          </button>
-          <button onClick={() => { sessionStorage.clear(); navigate('/'); }} className="btn btn-danger" style={{ borderRadius: '20px', fontSize: '0.85rem' }}>
+        <div>
+          <button
+            onClick={handleLogout}
+            className="btn btn-danger"
+            style={{ width: '100%', padding: '12px', justifyContent: 'center', borderRadius: '12px' }}
+          >
             🚪 Logout
           </button>
         </div>
       </div>
 
-      {/* 2. FACULTY DETAILS BANNER */}
+      {/* 3. TOP HEADER WITH HAMBURGER BUTTON */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            onClick={() => setIsDrawerOpen(true)}
+            style={{
+              background: 'var(--card-bg)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '10px',
+              padding: '8px 12px',
+              fontSize: '1.25rem',
+              cursor: 'pointer',
+              color: 'var(--text-main)',
+              boxShadow: 'var(--glass-shadow)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Open Menu"
+          >
+            ☰
+          </button>
+
+          <img src="/Srivishnu_Logo.jpg" alt="Vishnu Logo" style={{ height: '42px', width: '42px', borderRadius: '8px' }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>SmartAttend</h2>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={handleOpenHub} className="btn btn-secondary" style={{ borderRadius: '20px', fontSize: '0.85rem' }}>
+            🏛️ Campus Hub
+          </button>
+        </div>
+      </div>
+
+      {/* 4. FACULTY DETAILS BANNER */}
       <div className="card" style={{ padding: '14px 20px', marginBottom: '20px', background: 'rgba(79, 70, 229, 0.1)', border: '1px solid rgba(79, 70, 229, 0.2)' }}>
         <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--primary)' }}>
           👤 Faculty: {activeTeacher.full_name || 'Dr. Dupesh'} | ID: {activeTeacher.teacher_id || 'FAC101'}
         </span>
       </div>
 
-      {/* 3. FILTERS CARD */}
+      {/* 5. FILTERS CARD */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '15px', marginBottom: '20px' }}>
           <div>
@@ -406,7 +539,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 4. CLASS REGISTER TABLE */}
+      {/* 6. CLASS REGISTER TABLE */}
       <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
           <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>Class Attendance Register</h3>
@@ -477,7 +610,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                       </td>
                       <td style={{ padding: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button 
-                          onClick={() => handleSendWhatsApp(s)} 
+                          onClick={() => handleSendWhatsApp(student => handleSendWhatsApp(s))} 
                           className="btn" 
                           style={{ padding: '5px 12px', fontSize: '0.8rem', background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', borderColor: '#25D366' }}
                         >
@@ -499,7 +632,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* 5. SUMMARY ANALYTICS SECTION */}
+      {/* 7. SUMMARY ANALYTICS SECTION */}
       <div className="card" style={{ padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px', marginBottom: '24px' }}>
           <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
