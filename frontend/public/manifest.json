@@ -1,0 +1,39 @@
+{
+  "id": "/?portal=root",
+  "short_name": "SmartAttend",
+  "name": "Smart Attendance System",
+  "icons": [
+    {
+      "src": "/Srivishnu_Logo.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "theme_color": "#4f46e5",
+  "background_color": "#0f172a",
+  "shortcuts": [
+    {
+      "name": "Student Attendance",
+      "short_name": "Student",
+      "url": "/student",
+      "icons": [{ "src": "/Srivishnu_Logo.jpg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Teacher Attendance",
+      "short_name": "Teacher",
+      "url": "/teacher",
+      "icons": [{ "src": "/Srivishnu_Logo.jpg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Faculty Portal",
+      "short_name": "Faculty Hub",
+      "url": "/faculty-portal",
+      "icons": [{ "src": "/Srivishnu_Logo.jpg", "sizes": "192x192" }]
+    }
+  ]
+}

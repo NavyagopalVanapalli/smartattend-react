@@ -25,15 +25,24 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Default Landing */}
         <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Student Shortcut Target */}
+        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Teacher Shortcut Targets */}
         <Route path="/teacher" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Admin & Hub */}
         <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/hub" element={<AcademicHub />} />
         <Route path="/hub-login" element={<HubLogin />} />
-        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
+
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

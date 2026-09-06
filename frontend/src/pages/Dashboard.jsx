@@ -23,6 +23,24 @@ const getSavedTeacher = () => {
   }
 };
 
+const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);
+
+useEffect(() => {
+  const teacher = getSavedTeacher();
+  if (!teacher || !teacher.teacher_id) {
+    navigate('/');
+    return;
+  }
+
+  // Keep saved for future shortcut launches
+  localStorage.setItem("activeTeacher", JSON.stringify(teacher));
+  localStorage.setItem("teacher_session", JSON.stringify(teacher));
+  setActiveTeacher(teacher);
+
+  setAttendance({});
+  fetchStudentsAndAttendance();
+}, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);

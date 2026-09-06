@@ -1,6 +1,6 @@
-const CACHE_NAME = 'smartattend-v5';
+const CACHE_NAME = 'smartattend-clean-v6';
 
-self.addEventListener('install', () => {
+self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
@@ -11,10 +11,10 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Always serve index.html for page navigation so React Router handles the URL directly
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // SPA navigation: Return live network or index.html shell so deep links never render blank
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
       fetch(request).catch(() => caches.match('/index.html'))

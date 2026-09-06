@@ -24,33 +24,33 @@ export default function Login() {
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!teacherId.trim() || !password.trim()) {
-      alert("Please enter Faculty ID and Password.");
-      return;
-    }
+  e.preventDefault();
+  if (!teacherId.trim() || !password.trim()) {
+    alert("Please enter Faculty ID and Password.");
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const res = await axios.post('/api/login', { 
-        teacherId: teacherId.trim(), 
-        password: password.trim() 
-      });
-      if (res.data && res.data.success) {
-        // Fix: Persist in localStorage so standalone shortcuts stay authenticated
-        localStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
-        localStorage.setItem("teacher_session", JSON.stringify(res.data.teacher));
-        sessionStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
-        navigate('/dashboard');
-      } else {
-        alert("Invalid Faculty ID or Password!");
-      }
-    } catch (err) {
-      alert("Invalid Credentials or Server Error");
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const res = await axios.post('/api/login', { 
+      teacherId: teacherId.trim(), 
+      password: password.trim() 
+    });
+    if (res.data && res.data.success) {
+      // Store persistently for mobile shortcuts
+      localStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
+      localStorage.setItem("teacher_session", JSON.stringify(res.data.teacher));
+      sessionStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
+      navigate('/dashboard');
+    } else {
+      alert("Invalid Faculty ID or Password!");
     }
-  };
+  } catch (err) {
+    alert("Invalid Credentials or Server Error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRequestOtp = async () => {
     if (!resetTeacherId) {
