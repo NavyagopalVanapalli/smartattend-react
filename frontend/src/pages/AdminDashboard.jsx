@@ -74,7 +74,9 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
 
   useEffect(() => {
     if (message) {
-      const timer = setTimeout(() => setMessage(null), 4000);
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [message]);
@@ -830,6 +832,7 @@ export default function AdminDashboard({ darkMode, setDarkMode }) {
                       <strong>🎓 Eligibility:</strong> {ev.eligible}
                     </div>
 
+                    {/* LIVE PARTICIPANTS COUNTER */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',

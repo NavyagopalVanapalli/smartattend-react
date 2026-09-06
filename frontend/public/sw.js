@@ -1,5 +1,6 @@
-// Self-destroy stale caches
-self.addEventListener('install', (event) => {
+const CACHE_NAME = 'smartattend-v5';
+
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -10,9 +11,18 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Always fetch fresh network requests for page navigation
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
+  // SPA navigation: Return live network or index.html shell so deep links never render blank
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(request).catch(() => caches.match(request))
   );
 });

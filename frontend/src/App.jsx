@@ -25,24 +25,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Student Portal Entry */}
-        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
-
-        {/* Teacher / Attendance Dashboard Entries */}
+        <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/teacher" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/dashboard" element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
-
-        {/* Admin Portal Entries */}
+        <Route path="/student" element={<StudentAttendance darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin" element={<AdminDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="/admin-login" element={<AdminLogin />} />
-
-        {/* Academic Hub */}
         <Route path="/hub" element={<AcademicHub />} />
         <Route path="/hub-login" element={<HubLogin />} />
-
-        {/* Default Landing */}
-        <Route path="/" element={<Login darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        <Route path="/faculty-portal" element={<TeacherDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

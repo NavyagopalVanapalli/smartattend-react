@@ -37,6 +37,9 @@ export default function Login() {
         password: password.trim() 
       });
       if (res.data && res.data.success) {
+        // Fix: Persist in localStorage so standalone shortcuts stay authenticated
+        localStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
+        localStorage.setItem("teacher_session", JSON.stringify(res.data.teacher));
         sessionStorage.setItem("activeTeacher", JSON.stringify(res.data.teacher));
         navigate('/dashboard');
       } else {

@@ -10,11 +10,22 @@ const getLocalTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const getSavedTeacher = () => {
+  try {
+    return (
+      JSON.parse(localStorage.getItem("activeTeacher")) ||
+      JSON.parse(localStorage.getItem("teacher_session")) ||
+      JSON.parse(sessionStorage.getItem("activeTeacher")) ||
+      {}
+    );
+  } catch (e) {
+    return {};
+  }
+};
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
-  // Read from localStorage so mobile shortcuts stay logged in
-  const activeTeacher = JSON.parse(localStorage.getItem("activeTeacher") || sessionStorage.getItem("activeTeacher") || "{}");
-
+  const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);
   const todayStr = getLocalTodayString();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -41,23 +52,30 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
+  // 1. Initial Load & Persistent Session Recovery
   useEffect(() => {
-    if (!activeTeacher.teacher_id) {
+    const teacher = getSavedTeacher();
+    if (!teacher || !teacher.teacher_id) {
       navigate('/');
       return;
     }
-    // Mirror into localStorage to persist shortcut sessions
-    localStorage.setItem("activeTeacher", JSON.stringify(activeTeacher));
+
+    localStorage.setItem("activeTeacher", JSON.stringify(teacher));
+    localStorage.setItem("teacher_session", JSON.stringify(teacher));
+    setActiveTeacher(teacher);
+
     setAttendance({});
     fetchStudentsAndAttendance();
   }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
 
+  // 2. Real-time Live Attendance Polling
   useEffect(() => {
+    if (!activeTeacher.teacher_id) return;
     const interval = setInterval(() => {
       fetchLiveAttendanceOnly();
     }, 3000);
     return () => clearInterval(interval);
-  }, [filters.dept, filters.hour, filters.date]);
+  }, [filters.dept, filters.hour, filters.date, activeTeacher.teacher_id]);
 
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
@@ -125,7 +143,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         });
       }
     } catch (err) {
-      // Silent catch for background polling
+      // Background polling pass
     }
   };
 
@@ -324,7 +342,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '20px 15px', position: 'relative' }}>
       
-      {/* DRAWER OVERLAY */}
+      {/* DRAWER BACKDROP */}
       {isDrawerOpen && (
         <div
           onClick={() => setIsDrawerOpen(false)}
@@ -339,7 +357,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         />
       )}
 
-      {/* LEFT HAMBURGER MENU */}
+      {/* LEFT SLIDE-OUT DRAWER */}
       <div style={{
         position: 'fixed',
         top: 0,
@@ -678,7 +696,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </div>
 
-      {/* MODALS */}
+      {/* ADD STUDENT MODAL */}
       {isAddStudentOpen && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -734,6 +752,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
+      {/* QR MODAL */}
       {isQrOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center' }}>
@@ -754,6 +773,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
+      {/* CHANGE PASSWORD MODAL */}
       {isPasswordModalOpen && (
         <div className="modal-overlay">
           <div className="modal-card">
