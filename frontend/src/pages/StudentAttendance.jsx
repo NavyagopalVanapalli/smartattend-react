@@ -34,7 +34,6 @@ export default function StudentAttendance() {
   const [pendingSessionId, setPendingSessionId] = useState(null);
 
   useEffect(() => {
-    // 1. Check URL query params for sessionId (from phone camera QR scan)
     const urlParams = new URLSearchParams(window.location.search);
     const incomingSessionId = urlParams.get("sessionId");
 
@@ -53,10 +52,8 @@ export default function StudentAttendance() {
 
     if (incomingSessionId) {
       if (currentStudent && currentStudent.roll_no) {
-        // Automatically verify and mark attendance for linked student!
         verifyLocationAndMarkAttendance(incomingSessionId, currentStudent);
       } else {
-        // Prompt student to enter Roll Number to complete linking and mark attendance
         setPendingSessionId(incomingSessionId);
         setScanMessage({
           type: 'info',
@@ -177,7 +174,6 @@ export default function StudentAttendance() {
         setStudentInfo(studentData);
         fetchDetailedStats(studentData.roll_no);
 
-        // If a class QR code was scanned before registering, auto-mark attendance now!
         if (pendingSessionId) {
           verifyLocationAndMarkAttendance(pendingSessionId, studentData);
           setPendingSessionId(null);
@@ -279,7 +275,9 @@ export default function StudentAttendance() {
     }
   };
 
-  const percentage = detailedStats ? detailedStats.attendancePercentage : 0;
+  const totalWorkingDays = detailedStats ? (detailedStats.totalPresent + detailedStats.totalAbsent) : 0;
+  const totalPresent = detailedStats ? detailedStats.totalPresent : 0;
+  const percentage = detailedStats && totalWorkingDays > 0 ? Math.round((totalPresent / totalWorkingDays) * 100) : 0;
   const isSafe = percentage >= 75;
   const isWarning = percentage >= 65 && percentage < 75;
 
@@ -310,7 +308,6 @@ export default function StudentAttendance() {
     return true;
   });
 
-  // Background auto-polling for real-time leave approvals
   useEffect(() => {
     if (!studentInfo?.roll_no) return;
     const pollInterval = setInterval(() => {
@@ -320,35 +317,24 @@ export default function StudentAttendance() {
     return () => clearInterval(pollInterval);
   }, [studentInfo]);
 
-
-  // --- Calculation for Classes Needed for 75% Target ---
-  const totalWorkingDays = detailedStats ? detailedStats.totalWorkingDays : 0;
-  const totalPresent = detailedStats ? detailedStats.totalPresent : 0;
-  
-  // Formula: (Present + X) / (Total + X) >= 0.75  =>  X >= (3 * Total - 4 * Present)
+  // --- Fixed Calculation for Classes Needed / Safe Misses ---
   const calculateClassesNeeded = () => {
     if (totalWorkingDays === 0) return { type: 'none', count: 0 };
-    const currentPct = (totalPresent / totalWorkingDays) * 100;
     
-    if (currentPct >= 75) {
-      // How many classes can they safely miss while staying >= 75%?
-      // Present / (Total + X) >= 0.75 => X <= (Present / 0.75) - Total
+    if (percentage >= 75) {
       const safeMisses = Math.floor((totalPresent / 0.75) - totalWorkingDays);
       return { type: 'safe', count: Math.max(0, safeMisses) };
     } else {
-      // How many consecutive classes must they attend?
-      const needed = Math.ceil((0.75 * totalWorkingDays - totalPresent) / (1 - 0.75));
+      const needed = Math.ceil((0.75 * totalWorkingDays - totalPresent) / 0.25);
       return { type: 'needed', count: Math.max(0, needed) };
     }
   };
 
   const targetInfo = calculateClassesNeeded();
 
-
   return (
     <div style={{ width: '100%', maxWidth: '580px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
       
-      {/* HEADER & PWA INSTALL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.5rem)', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>⚡ SmartAttend</h2>
@@ -361,7 +347,6 @@ export default function StudentAttendance() {
         )}
       </div>
 
-      {/* STATUS / SCAN NOTIFICATION BANNER */}
       {scanMessage && (
         <div style={{
           padding: '12px 16px',
@@ -432,7 +417,6 @@ export default function StudentAttendance() {
         </div>
       ) : (
         <div>
-          {/* PROFILE & BADGE CARD */}
           <div className="card" style={{ padding: '16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ minWidth: '180px' }}>
               <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.8px' }}>LINKED PROFILE</span>
@@ -459,12 +443,11 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-
           {/* TARGET 75% ATTENDANCE PLANNER CARD */}
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: percentage >= 75 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', border: `1px solid ${percentage >= 75 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                <span style={{ fontSize: '0.68rem', fontWeight: '800', color: percentage >= 75 ? '#10b981' : '#ef4444', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   🎯 75% Target Goal Planner
                 </span>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-main)' }}>
@@ -478,15 +461,14 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-          {/* OVERALL METRICS CARDS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
             <div className="card" style={{ padding: '12px 6px', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL DAYS</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{detailedStats ? detailedStats.totalWorkingDays : 0}</h3>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL CLASSES</span>
+              <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalWorkingDays}</h3>
             </div>
             <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #34d399' }}>
               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT</span>
-              <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{detailedStats ? detailedStats.totalPresent : 0}</h3>
+              <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalPresent}</h3>
             </div>
             <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #f87171' }}>
               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT</span>
@@ -494,7 +476,6 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-          {/* DUAL ACTION BUTTONS: LEAVES & CAMPUS HUB */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginBottom: '14px' }}>
             <button
               onClick={() => { setShowLeaveModal(true); fetchLeaveHistory(); }}
@@ -512,7 +493,6 @@ export default function StudentAttendance() {
             </button>
           </div>
 
-          {/* SCANNER ACTION */}
           <div className="card" style={{ padding: '16px', marginBottom: '14px', textAlign: 'center' }}>
             <button
               onClick={() => setIsCameraOpen(true)}
@@ -530,7 +510,6 @@ export default function StudentAttendance() {
             )}
           </div>
 
-          {/* SUBJECT PROGRESS BARS */}
           <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem' }}>📚 Subject & Period Breakdown</h4>
             {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
@@ -564,7 +543,6 @@ export default function StudentAttendance() {
             )}
           </div>
 
-          {/* MONTHLY ATTENDANCE BAR GRAPH */}
           <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
             <h4 style={{ margin: '0 0 4px 0', fontSize: '0.92rem' }}>📊 Monthly Attendance Graph</h4>
             <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '14px' }}>Tap a month bar to view total present days.</p>
@@ -587,7 +565,6 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-          {/* ATTENDANCE HISTORY LOG */}
           <div className="card" style={{ padding: '16px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
               <h4 style={{ margin: 0, fontSize: '0.92rem' }}>🕒 Attendance Log</h4>
@@ -674,7 +651,6 @@ export default function StudentAttendance() {
         </div>
       )}
 
-      {/* CAMERA SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
@@ -706,7 +682,6 @@ export default function StudentAttendance() {
         </div>
       )}
 
-      {/* MONTHLY BAR MODAL */}
       {selectedMonthModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px' }}>
@@ -720,7 +695,6 @@ export default function StudentAttendance() {
         </div>
       )}
 
-      {/* OD & MEDICAL LEAVE MODAL */}
       {showLeaveModal && (
         <div className="modal-overlay">
           <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto' }}>

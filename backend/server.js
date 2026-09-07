@@ -14,6 +14,8 @@ const Attendance = require('./models/Attendance');
 const Admin = require('./models/Admin');
 const LeaveRequest = require('./models/LeaveRequest');
 const EventRegistration = require('./models/EventRegistration');
+const Resource = require('./models/Resource');
+const Event = require('./models/Event');
 
 const app = express();
 
@@ -237,8 +239,6 @@ app.get('/api/student/detailed-stats', async (req, res) => {
       ? new Set(deptRecords.map(r => `${r.date}_${r.hour}`)).size
       : 0;
 
-    const totalWorkingDays = new Set(deptRecords.map(r => r.date)).size;
-
     // 2. Fetch Student Records
     const studentRecords = await Attendance.find({ roll_no: cleanRoll }).sort({ date: -1, updated_at: -1 });
 
@@ -246,9 +246,9 @@ app.get('/api/student/detailed-stats', async (req, res) => {
     const explicitAbsent = studentRecords.filter(r => r.status === 'Absent').length;
     const totalAbsent = Math.max(explicitAbsent, Math.max(0, totalHeldPeriods - totalPresent));
 
-    const totalClassesCount = totalPresent + totalAbsent;
-    const attendancePercentage = totalClassesCount > 0 
-      ? Math.round((totalPresent / totalClassesCount) * 100) 
+    const totalWorkingDays = totalPresent + totalAbsent;
+    const attendancePercentage = totalWorkingDays > 0 
+      ? Math.round((totalPresent / totalWorkingDays) * 100) 
       : 100;
 
     // 3. Subject Breakdown
@@ -357,7 +357,6 @@ app.get('/api/attendance/live', async (req, res) => {
       query.hour = { $regex: new RegExp(hourPrefix.trim(), 'i') };
     }
 
-    // STRICT MULTI-TEACHER ISOLATION: Scopes live updates strictly to the logged-in teacher
     if (teacherId) {
       query.teacher_id = teacherId.trim();
     }
@@ -539,7 +538,6 @@ app.post('/api/admin/teachers', async (req, res) => {
   }
 });
 
-// UPDATE FACULTY (Includes phone number)
 app.put('/api/admin/teachers/update', async (req, res) => {
   const { teacher_id, full_name, email, phone, dept_code } = req.body;
   try {
@@ -573,7 +571,6 @@ app.post('/api/admin/students', async (req, res) => {
 
     const cleanRollNo = roll_no.trim().toUpperCase();
 
-    // Check if student already exists
     const existingStudent = await Student.findOne({ roll_no: cleanRollNo });
     if (existingStudent) {
       return res.status(400).json({ 
@@ -708,8 +705,6 @@ app.post('/api/verify-otp-reset-password', async (req, res) => {
   }
 });
 
-
-// 1. UPDATE EXTENDED STUDENT PROFILE (Projects, Languages, Certificates, Period)
 app.put('/api/admin/students/extended-update', async (req, res) => {
   const { 
     roll_no, 
@@ -757,8 +752,6 @@ app.put('/api/admin/students/extended-update', async (req, res) => {
   }
 });
 
-// 2. UPDATE EXTENDED TEACHER PROFILE (Experience, Past Colleges, Subjects)
-// EDIT EXTENDED TEACHER DETAILS
 app.put('/api/admin/teachers/extended-update', async (req, res) => {
   const {
     teacher_id,
@@ -804,8 +797,6 @@ app.put('/api/admin/teachers/extended-update', async (req, res) => {
   }
 });
 
-
-// 1. Submit OD / Medical Leave Request
 app.post('/api/leaves/apply', async (req, res) => {
   try {
     const { roll_no, student_name, dept_code, leave_type, from_date, to_date, reason } = req.body;
@@ -829,7 +820,6 @@ app.post('/api/leaves/apply', async (req, res) => {
   }
 });
 
-// 2. Student: View Personal Leave History
 app.get('/api/leaves/student', async (req, res) => {
   try {
     const { roll_no } = req.query;
@@ -842,7 +832,6 @@ app.get('/api/leaves/student', async (req, res) => {
   }
 });
 
-// 3. Admin: View All Applications
 app.get('/api/admin/leaves', async (req, res) => {
   try {
     const leaves = await LeaveRequest.find().sort({ createdAt: -1 });
@@ -852,7 +841,6 @@ app.get('/api/admin/leaves', async (req, res) => {
   }
 });
 
-// 4. Admin: Approve or Reject Application & Auto-Update Attendance
 app.put('/api/admin/leaves/review', async (req, res) => {
   try {
     const { leaveId, status, reviewed_by } = req.body;
@@ -863,7 +851,6 @@ app.put('/api/admin/leaves/review', async (req, res) => {
     leave.reviewed_by = reviewed_by || 'Admin';
     await leave.save();
 
-    // If Approved, convert marked absences within the date window to 'Present' (OD / Medical Credit)
     if (status === 'Approved') {
       await Attendance.updateMany(
         {
@@ -881,9 +868,6 @@ app.put('/api/admin/leaves/review', async (req, res) => {
   }
 });
 
-const Resource = require('./models/Resource');
-
-// 1. Fetch all academic resources
 app.get('/api/resources', async (req, res) => {
   try {
     const resources = await Resource.find().sort({ createdAt: -1 });
@@ -893,44 +877,9 @@ app.get('/api/resources', async (req, res) => {
   }
 });
 
-// 2. Faculty creates a new subject PDF resource
 app.post('/api/resources/create', async (req, res) => {
   try {
     const { subject, dept, year, docType, title, fileUrl, size, uploadedBy } = req.body;
-    if (!subject || !title || !fileUrl) {
-      return res.status(400).json({ success: false, message: 'Subject, Title, and PDF URL are required.' });
-    }
-
-    const newRes = await Resource.create({
-      subject,
-      dept: dept || 'MCA',
-      year: year || '1st Year',
-      docType: docType || 'Lecture Notes',
-      title,
-      fileUrl,
-      size: size || '2.5 MB',
-      uploadedBy: uploadedBy || 'Faculty'
-    });
-
-    res.json({ success: true, message: 'Resource published successfully!', resource: newRes });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// 3. Delete Resource
-app.delete('/api/resources/:id', async (req, res) => {
-  try {
-    await Resource.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Resource removed.' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.post('/api/resources/create', async (req, res) => {
-  try {
-    const { subject, dept, year, docType, title, fileUrl, fileName, size, uploadedBy } = req.body;
     if (!subject || !title || !fileUrl) {
       return res.status(400).json({ success: false, message: 'Subject, Title, and File are required.' });
     }
@@ -952,9 +901,15 @@ app.post('/api/resources/create', async (req, res) => {
   }
 });
 
-const Event = require('./models/Event');
+app.delete('/api/resources/:id', async (req, res) => {
+  try {
+    await Resource.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Resource removed.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-// 1. Fetch All Events
 app.get('/api/events', async (req, res) => {
   try {
     const events = await Event.find().sort({ createdAt: -1 });
@@ -964,7 +919,6 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// 2. Create Event (Admin)
 app.post('/api/admin/events', async (req, res) => {
   try {
     const { type, title, date, venue, eligible, badgeColor, description } = req.body;
@@ -988,7 +942,6 @@ app.post('/api/admin/events', async (req, res) => {
   }
 });
 
-// 3. Delete Event (Admin)
 app.delete('/api/admin/events/:id', async (req, res) => {
   try {
     await Event.findByIdAndDelete(req.params.id);
@@ -997,7 +950,6 @@ app.delete('/api/admin/events/:id', async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 
 app.post('/api/events/register', async (req, res) => {
   try {
@@ -1029,7 +981,6 @@ app.post('/api/events/register', async (req, res) => {
   }
 });
 
-// 2. Fetch all event registrations grouped or itemized for Admin Dashboard
 app.get('/api/admin/event-registrations', async (req, res) => {
   try {
     const registrations = await EventRegistration.find().sort({ createdAt: -1 });
@@ -1043,7 +994,6 @@ app.get('/api/admin/event-registrations', async (req, res) => {
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
-
 
 // START SERVER
 const PORT = process.env.PORT || 5000;
