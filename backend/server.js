@@ -401,6 +401,22 @@ app.post('/api/attendance/submit', async (req, res) => {
 // MULTI-SESSION QR CODE GENERATOR
 let activeQrSessions = {};
 
+function getLocalIpAddress() {
+  try {
+    const interfaces = require('os').networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error getting local IP:", e);
+  }
+  return '192.168.0.109';
+}
+
 app.post('/api/qr/generate-location', (req, res) => {
   const { dept, year, section, hour, date, teacherLat, teacherLng, teacherId } = req.body;
   
@@ -410,14 +426,17 @@ app.post('/api/qr/generate-location', (req, res) => {
   activeQrSessions[sessionId] = {
     dept, year, section, hour, date,
     teacherId: teacherId || 'FAC101',
-    lat: parseFloat(teacherLat),
-    lng: parseFloat(teacherLng),
+    lat: parseFloat(teacherLat) || 0,
+    lng: parseFloat(teacherLng) || 0,
     expiresAt: Date.now() + (10 * 60 * 1000)
   };
+
+  const serverIp = getLocalIpAddress();
 
   res.json({ 
     success: true, 
     sessionId: sessionId,
+    serverIp: serverIp,
     qrPayload: JSON.stringify({ sessionId, dept, section, hour, date, time: Date.now() })
   });
 });
@@ -436,18 +455,23 @@ app.post('/api/qr/verify-student', async (req, res) => {
     return res.status(400).json({ success: false, message: "QR Code has expired!" });
   }
 
-  const distance = getDistanceInMeters(
-    session.lat,
-    session.lng,
-    parseFloat(studentLat),
-    parseFloat(studentLng)
-  );
+  const teacherHasCoords = session.lat && session.lng && !isNaN(session.lat) && !isNaN(session.lng) && session.lat !== 0;
+  const studentHasCoords = studentLat && studentLng && !isNaN(studentLat) && !isNaN(studentLng) && parseFloat(studentLat) !== 0;
 
-  if (distance > 500) {
-    return res.status(403).json({ 
-      success: false, 
-      message: `Location verification failed! You are ${Math.round(distance)}m away from classroom.` 
-    });
+  if (teacherHasCoords && studentHasCoords) {
+    const distance = getDistanceInMeters(
+      session.lat,
+      session.lng,
+      parseFloat(studentLat),
+      parseFloat(studentLng)
+    );
+
+    if (distance > 500) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `Location verification failed! You are ${Math.round(distance)}m away from classroom.` 
+      });
+    }
   }
 
   try {

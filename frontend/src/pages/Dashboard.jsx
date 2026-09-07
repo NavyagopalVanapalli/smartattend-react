@@ -25,8 +25,7 @@ const getSavedTeacher = () => {
 
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
-  // Initialize state once safely without recreating object references on every render
-  const [activeTeacher] = useState(getSavedTeacher);
+  const [activeTeacher, setActiveTeacher] = useState(getSavedTeacher);
   const todayStr = getLocalTodayString();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -53,27 +52,30 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [qrData, setQrData] = useState('');
 
-  // 1. Authentication Check on Mount
+  // 1. Initial Load & Persistent Session Recovery
   useEffect(() => {
-    if (!activeTeacher || !activeTeacher.teacher_id) {
+    const teacher = getSavedTeacher();
+    if (!teacher || !teacher.teacher_id) {
       navigate('/');
+      return;
     }
-  }, [activeTeacher, navigate]);
 
-  // 2. Data Fetching Effect when Filters Change
-  useEffect(() => {
-    if (!activeTeacher?.teacher_id) return;
+    localStorage.setItem("activeTeacher", JSON.stringify(teacher));
+    localStorage.setItem("teacher_session", JSON.stringify(teacher));
+    setActiveTeacher(teacher);
+
+    setAttendance({});
     fetchStudentsAndAttendance();
-  }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date, activeTeacher.teacher_id]);
+  }, [filters.dept, filters.year, filters.sec, filters.hour, filters.date]);
 
-  // 3. Real-time Live Attendance Polling
+  // 2. Real-time Live Attendance Polling
   useEffect(() => {
-    if (!activeTeacher?.teacher_id) return;
+    if (!activeTeacher.teacher_id) return;
     const interval = setInterval(() => {
       fetchLiveAttendanceOnly();
     }, 3000);
     return () => clearInterval(interval);
-  }, [filters.dept, filters.hour, filters.date, activeTeacher?.teacher_id]);
+  }, [filters.dept, filters.hour, filters.date, activeTeacher.teacher_id]);
 
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
@@ -146,41 +148,50 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   };
 
   const handleGenerateQr = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      return;
-    }
+    const generateSession = async (lat, lng) => {
+      try {
+        const res = await axios.post('/api/qr/generate-location', {
+          dept: filters.dept,
+          year: filters.year,
+          section: filters.sec,
+          hour: filters.hour,
+          date: filters.date,
+          teacherLat: lat,
+          teacherLng: lng,
+          teacherId: activeTeacher.teacher_id || 'FAC101'
+        });
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const res = await axios.post('/api/qr/generate-location', {
-            dept: filters.dept,
-            year: filters.year,
-            section: filters.sec,
-            hour: filters.hour,
-            date: filters.date,
-            teacherLat: position.coords.latitude,
-            teacherLng: position.coords.longitude,
-            teacherId: activeTeacher.teacher_id || 'FAC101'
-          });
+        if (res.data.success) {
+          const serverIp = res.data.serverIp || '192.168.0.109';
+          const port = window.location.port || '5173';
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          const baseUrl = isLocal
+            ? `http://${serverIp}:${port}`
+            : window.location.origin;
 
-          if (res.data.success) {
-            const baseUrl = window.location.origin.includes('localhost')
-              ? 'http://192.168.0.100:5173'
-              : window.location.origin;
-
-            const studentAccessUrl = `${baseUrl}/student?sessionId=${res.data.sessionId}`;
-            setQrData(studentAccessUrl);
-            setIsQrOpen(true);
-          }
-        } catch (err) {
-          alert("Failed to generate classroom QR code.");
+          const studentAccessUrl = `${baseUrl}/student?sessionId=${res.data.sessionId}`;
+          setQrData(studentAccessUrl);
+          setIsQrOpen(true);
         }
-      },
-      () => alert("Please allow GPS location permission to generate classroom QR code."),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      } catch (err) {
+        alert("Failed to generate classroom QR code.");
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          generateSession(position.coords.latitude, position.coords.longitude);
+        },
+        () => {
+          // If GPS fails (e.g. desktop without GPS hardware), proceed smoothly
+          generateSession(0, 0);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    } else {
+      generateSession(0, 0);
+    }
   };
 
   const handleAddStudent = async (e) => {
@@ -753,17 +764,26 @@ export default function Dashboard({ darkMode, setDarkMode }) {
       {/* QR MODAL */}
       {isQrOpen && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center' }}>
-            <h3>📱 Classroom Live QR Code</h3>
-            <div style={{ background: '#ffffff', padding: '15px', borderRadius: '16px', display: 'inline-block', margin: '15px 0' }}>
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '420px' }}>
+            <h3 style={{ margin: '0 0 6px 0' }}>📱 Classroom Live QR Code</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+              Students can scan this QR code with their phone camera to open and mark attendance.
+            </p>
+            <div style={{ background: '#ffffff', padding: '15px', borderRadius: '16px', display: 'inline-block', margin: '6px 0', border: '1px solid var(--border)' }}>
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`} 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`} 
                 alt="Class QR Code" 
-                style={{ width: '200px', height: '200px' }} 
+                style={{ width: '220px', height: '220px', display: 'block' }} 
               />
             </div>
+            <div style={{ margin: '10px 0', padding: '10px', background: 'rgba(99, 102, 241, 0.08)', borderRadius: '10px', fontSize: '0.78rem', wordBreak: 'break-all' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Class Link: </span>
+              <a href={qrData} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700' }}>
+                {qrData}
+              </a>
+            </div>
             <div className="modal-actions" style={{ justifyContent: 'center' }}>
-              <button onClick={() => setIsQrOpen(false)} className="btn btn-primary">
+              <button onClick={() => setIsQrOpen(false)} className="btn btn-primary" style={{ width: '100%' }}>
                 Close QR Code
               </button>
             </div>

@@ -31,20 +31,37 @@ export default function StudentAttendance() {
   });
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [pendingSessionId, setPendingSessionId] = useState(null);
 
   useEffect(() => {
-    const RESET_KEY = "reset_student_logins_v2";
-    if (!localStorage.getItem(RESET_KEY)) {
-      localStorage.removeItem("student_profile");
-      localStorage.setItem(RESET_KEY, "true");
-      setStudentInfo(null);
-      setDetailedStats(null);
-    } else {
-      const savedStudent = localStorage.getItem("student_profile");
-      if (savedStudent) {
-        const parsed = JSON.parse(savedStudent);
-        setStudentInfo(parsed);
-        fetchDetailedStats(parsed.roll_no);
+    // 1. Check URL query params for sessionId (from phone camera QR scan)
+    const urlParams = new URLSearchParams(window.location.search);
+    const incomingSessionId = urlParams.get("sessionId");
+
+    const savedStudent = localStorage.getItem("student_profile");
+    let currentStudent = null;
+
+    if (savedStudent) {
+      try {
+        currentStudent = JSON.parse(savedStudent);
+        setStudentInfo(currentStudent);
+        fetchDetailedStats(currentStudent.roll_no);
+      } catch (e) {
+        console.error("Error loading saved student profile:", e);
+      }
+    }
+
+    if (incomingSessionId) {
+      if (currentStudent && currentStudent.roll_no) {
+        // Automatically verify and mark attendance for linked student!
+        verifyLocationAndMarkAttendance(incomingSessionId, currentStudent);
+      } else {
+        // Prompt student to enter Roll Number to complete linking and mark attendance
+        setPendingSessionId(incomingSessionId);
+        setScanMessage({
+          type: 'info',
+          text: '⚡ Class QR Code scanned! Enter your Roll Number below to connect and mark attendance.'
+        });
       }
     }
 
@@ -159,6 +176,12 @@ export default function StudentAttendance() {
         localStorage.setItem("student_profile", JSON.stringify(studentData));
         setStudentInfo(studentData);
         fetchDetailedStats(studentData.roll_no);
+
+        // If a class QR code was scanned before registering, auto-mark attendance now!
+        if (pendingSessionId) {
+          verifyLocationAndMarkAttendance(pendingSessionId, studentData);
+          setPendingSessionId(null);
+        }
       }
     } catch (err) {
       alert("Roll Number not registered in system. Please contact faculty.");
@@ -201,42 +224,59 @@ export default function StudentAttendance() {
 
   const onScanFailure = () => {};
 
-  const verifyLocationAndMarkAttendance = (sessionId) => {
-    if (!navigator.geolocation) {
-      setScanMessage({ type: 'error', text: 'Geolocation unsupported on this device.' });
+  const verifyLocationAndMarkAttendance = (sessionId, studentOverride = null) => {
+    const activeStudent = studentOverride || studentInfo;
+    if (!activeStudent || !activeStudent.roll_no) {
+      setScanMessage({ type: 'error', text: 'Please link your Roll Number first.' });
       return;
     }
 
     setScanning(true);
     setScanMessage({ type: 'info', text: '📡 Verifying classroom GPS location...' });
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const res = await axios.post('/api/qr/verify-student', {
-            rollNo: studentInfo.roll_no,
-            studentLat: position.coords.latitude,
-            studentLng: position.coords.longitude,
-            sessionId: sessionId
-          });
+    const submitLocation = async (lat, lng) => {
+      try {
+        const res = await axios.post('/api/qr/verify-student', {
+          rollNo: activeStudent.roll_no,
+          studentLat: lat,
+          studentLng: lng,
+          sessionId: sessionId
+        });
 
-          if (res.data && res.data.success) {
-            setScanMessage({ type: 'success', text: `✅ Verified! Attendance marked PRESENT.` });
-            fetchDetailedStats(studentInfo.roll_no);
-          }
-        } catch (err) {
-          const msg = err.response?.data?.message || 'Location verification failed. Be inside classroom.';
-          setScanMessage({ type: 'error', text: `❌ ${msg}` });
-        } finally {
-          setScanning(false);
+        if (res.data && res.data.success) {
+          setScanMessage({
+            type: 'success',
+            text: res.data.message || `✅ Verified! Attendance marked PRESENT for ${activeStudent.full_name}.`
+          });
+          fetchDetailedStats(activeStudent.roll_no);
+        } else {
+          setScanMessage({ type: 'error', text: res.data?.message || 'Verification failed.' });
         }
-      },
-      () => {
+      } catch (err) {
+        const msg = err.response?.data?.message || 'Location verification failed. Be inside classroom.';
+        setScanMessage({ type: 'error', text: `❌ ${msg}` });
+      } finally {
         setScanning(false);
-        setScanMessage({ type: 'error', text: '📍 Please allow GPS location permission in your browser.' });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (e) {}
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          submitLocation(position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.warn("GPS error, trying fallback:", error);
+          submitLocation(0, 0);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      submitLocation(0, 0);
+    }
   };
 
   const percentage = detailedStats ? detailedStats.attendancePercentage : 0;
@@ -280,6 +320,31 @@ export default function StudentAttendance() {
     return () => clearInterval(pollInterval);
   }, [studentInfo]);
 
+
+  // --- Calculation for Classes Needed for 75% Target ---
+  const totalWorkingDays = detailedStats ? detailedStats.totalWorkingDays : 0;
+  const totalPresent = detailedStats ? detailedStats.totalPresent : 0;
+  
+  // Formula: (Present + X) / (Total + X) >= 0.75  =>  X >= (3 * Total - 4 * Present)
+  const calculateClassesNeeded = () => {
+    if (totalWorkingDays === 0) return { type: 'none', count: 0 };
+    const currentPct = (totalPresent / totalWorkingDays) * 100;
+    
+    if (currentPct >= 75) {
+      // How many classes can they safely miss while staying >= 75%?
+      // Present / (Total + X) >= 0.75 => X <= (Present / 0.75) - Total
+      const safeMisses = Math.floor((totalPresent / 0.75) - totalWorkingDays);
+      return { type: 'safe', count: Math.max(0, safeMisses) };
+    } else {
+      // How many consecutive classes must they attend?
+      const needed = Math.ceil((0.75 * totalWorkingDays - totalPresent) / (1 - 0.75));
+      return { type: 'needed', count: Math.max(0, needed) };
+    }
+  };
+
+  const targetInfo = calculateClassesNeeded();
+
+
   return (
     <div style={{ width: '100%', maxWidth: '580px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
       
@@ -296,13 +361,61 @@ export default function StudentAttendance() {
         )}
       </div>
 
+      {/* STATUS / SCAN NOTIFICATION BANNER */}
+      {scanMessage && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '16px',
+          borderRadius: '12px',
+          background: scanMessage.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : scanMessage.type === 'info' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          border: `1px solid ${scanMessage.type === 'success' ? '#10b981' : scanMessage.type === 'info' ? '#6366f1' : '#ef4444'}`,
+          color: scanMessage.type === 'success' ? '#10b981' : scanMessage.type === 'info' ? '#818cf8' : '#ef4444',
+          fontWeight: '700',
+          fontSize: '0.88rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px'
+        }}>
+          <div>{scanMessage.text}</div>
+          <button 
+            type="button"
+            onClick={() => setScanMessage(null)} 
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {scanning && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '16px',
+          borderRadius: '12px',
+          background: 'rgba(99, 102, 241, 0.15)',
+          border: '1px solid #6366f1',
+          color: '#818cf8',
+          fontWeight: '700',
+          fontSize: '0.88rem',
+          textAlign: 'center'
+        }}>
+          ⏳ Verifying classroom attendance session...
+        </div>
+      )}
+
       {!studentInfo ? (
         <div className="card" style={{ padding: 'clamp(20px, 5vw, 32px)', textAlign: 'center' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
           <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
             Enter your Roll Number once to link this mobile device permanently.
           </p>
+          {pendingSessionId && (
+            <div style={{ padding: '8px 12px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '700' }}>
+              ⚡ Class QR Session Active: Connect your Roll Number to record your attendance!
+            </div>
+          )}
           <form onSubmit={handleRegister}>
             <input
               type="text"
@@ -342,6 +455,25 @@ export default function StudentAttendance() {
               </div>
               <div style={{ fontSize: '0.68rem', fontWeight: '700', marginTop: '4px', color: isSafe ? '#10b981' : '#ef4444' }}>
                 {isSafe ? '✅ Safe (≥75%)' : isWarning ? '⚠️ Low Attendance' : '🚨 Shortage (<65%)'}
+              </div>
+            </div>
+          </div>
+
+
+          {/* TARGET 75% ATTENDANCE PLANNER CARD */}
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                  🎯 75% Target Goal Planner
+                </span>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                  {targetInfo.type === 'safe' ? (
+                    <>You are above 75%. You can safely miss up to <strong>{targetInfo.count} class(es)</strong> without dropping below safety.</>
+                  ) : (
+                    <>You need to attend the next <strong>{targetInfo.count} consecutive class(es)</strong> to reach the 75% benchmark.</>
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -549,7 +681,10 @@ export default function StudentAttendance() {
             <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>📷 Classroom QR Scanner</h3>
             {cameraPermissionError ? (
               <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', marginBottom: '12px' }}>
-                {cameraPermissionError}
+                <div style={{ fontWeight: '700', marginBottom: '6px' }}>{cameraPermissionError}</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  💡 <strong>Tip:</strong> Simply open your phone's regular <strong>Camera app</strong> (or Google Lens) and point it at the teacher's screen QR code to open and mark attendance instantly!
+                </div>
               </div>
             ) : (
               <div id="qr-reader-container" style={{ width: '100%', borderRadius: '14px', overflow: 'hidden' }}></div>
