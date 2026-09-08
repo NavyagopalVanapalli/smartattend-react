@@ -20,11 +20,12 @@ export default function StudentAttendance() {
   const [cameraPermissionError, setCameraPermissionError] = useState(null);
   const scannerRef = useRef(null);
 
+  // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("student_dark") === "true");
 
   useEffect(() => {
-  localStorage.setItem("student_dark", darkMode);
-}, [darkMode]);
+    localStorage.setItem("student_dark", darkMode);
+  }, [darkMode]);
 
   // Leave & OD States
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -323,7 +324,6 @@ export default function StudentAttendance() {
     return () => clearInterval(pollInterval);
   }, [studentInfo]);
 
-  // --- Fixed Calculation for Classes Needed / Safe Misses ---
   const calculateClassesNeeded = () => {
     if (totalWorkingDays === 0) return { type: 'none', count: 0 };
     
@@ -339,18 +339,40 @@ export default function StudentAttendance() {
   const targetInfo = calculateClassesNeeded();
 
   return (
-    <div style={{ width: '100%', maxWidth: '580px', margin: '0 auto', padding: '16px 12px', minHeight: '100vh', boxSizing: 'border-box' }}>
+    <div style={{ 
+      width: '100%', 
+      maxWidth: '580px', 
+      margin: '0 auto', 
+      padding: '16px 12px', 
+      minHeight: '100vh', 
+      boxSizing: 'border-box',
+      background: darkMode ? '#0f172a' : '#f8fafc',
+      color: darkMode ? '#f8fafc' : '#0f172a',
+      transition: 'background 0.3s ease, color 0.3s ease' 
+    }}>
       
+      {/* HEADER & CONTROLS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.5rem)', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>⚡ SmartAttend</h2>
           <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Student Self-Service Portal</span>
         </div>
-        {deferredPrompt && (
-          <button onClick={handleInstallPWA} className="btn btn-secondary" style={{ fontSize: '0.76rem', padding: '6px 12px' }}>
-            📲 Install App
+        
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            onClick={() => setDarkMode(!darkMode)} 
+            className="btn btn-secondary" 
+            style={{ fontSize: '0.76rem', padding: '6px 12px' }}
+          >
+            {darkMode ? '☀️ Light' : '🌙 Dark'}
           </button>
-        )}
+
+          {deferredPrompt && (
+            <button onClick={handleInstallPWA} className="btn btn-secondary" style={{ fontSize: '0.76rem', padding: '6px 12px' }}>
+              📲 Install App
+            </button>
+          )}
+        </div>
       </div>
 
       {scanMessage && (
@@ -396,7 +418,7 @@ export default function StudentAttendance() {
       )}
 
       {!studentInfo ? (
-        <div className="card" style={{ padding: 'clamp(20px, 5vw, 32px)', textAlign: 'center' }}>
+        <div className="card" style={{ padding: 'clamp(20px, 5vw, 32px)', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
           <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
@@ -413,7 +435,7 @@ export default function StudentAttendance() {
               placeholder="e.g. 2585351122"
               value={rollNoInput}
               onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
-              style={{ width: '100%', padding: '12px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1rem' }}
+              style={{ width: '100%', padding: '12px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
               required
             />
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: '700' }}>
@@ -423,35 +445,12 @@ export default function StudentAttendance() {
         </div>
       ) : (
         <div>
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
             <div style={{ minWidth: '180px' }}>
               <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.8px' }}>LINKED PROFILE</span>
               <h3 style={{ margin: '2px 0', fontSize: 'clamp(1rem, 3.5vw, 1.15rem)' }}>{studentInfo.full_name}</h3>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
             </div>
-
-            <div style={{ 
-  width: '100%', 
-  maxWidth: '580px', 
-  margin: '0 auto', 
-  padding: '16px 12px', 
-  minHeight: '100vh', 
-  boxSizing: 'border-box',
-  background: darkMode ? '#0f172a' : '#f8fafc',
-  color: darkMode ? '#f8fafc' : '#0f172a',
-  transition: 'background 0.3s ease, color 0.3s ease' 
-}}>
-  
-  {/* Add a toggle button next to your PWA install button in the header */}
-  <button 
-    onClick={() => setDarkMode(!darkMode)} 
-    className="btn btn-secondary" 
-    style={{ fontSize: '0.76rem', padding: '6px 12px' }}
-  >
-    {darkMode ? '☀️ Light' : '🌙 Dark'}
-  </button>
-  {/* Rest of student dashboard JSX... */}
-</div>
 
             <div style={{ textAlign: 'right' }}>
               <div style={{
@@ -479,7 +478,7 @@ export default function StudentAttendance() {
                 <span style={{ fontSize: '0.68rem', fontWeight: '800', color: percentage >= 75 ? '#10b981' : '#ef4444', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   🎯 75% Target Goal Planner
                 </span>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: darkMode ? '#f8fafc' : 'var(--text-main)' }}>
                   {targetInfo.type === 'safe' ? (
                     <>You are above 75%. You can safely miss up to <strong>{targetInfo.count} class(es)</strong> without dropping below safety.</>
                   ) : (
@@ -491,15 +490,15 @@ export default function StudentAttendance() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center' }}>
+            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff' }}>
               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL CLASSES</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalWorkingDays}</h3>
             </div>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #34d399' }}>
+            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #34d399', background: darkMode ? '#1e293b' : '#ffffff' }}>
               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalPresent}</h3>
             </div>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #f87171' }}>
+            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #f87171', background: darkMode ? '#1e293b' : '#ffffff' }}>
               <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#f87171', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{detailedStats ? detailedStats.totalAbsent : 0}</h3>
             </div>
@@ -522,7 +521,7 @@ export default function StudentAttendance() {
             </button>
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', textAlign: 'center' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff' }}>
             <button
               onClick={() => setIsCameraOpen(true)}
               disabled={scanning}
@@ -539,7 +538,7 @@ export default function StudentAttendance() {
             )}
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: darkMode ? '#1e293b' : '#ffffff' }}>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem' }}>📚 Subject & Period Breakdown</h4>
             {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
               Object.entries(detailedStats.subjects).map(([subj, data]) => {
@@ -572,7 +571,7 @@ export default function StudentAttendance() {
             )}
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: darkMode ? '#1e293b' : '#ffffff' }}>
             <h4 style={{ margin: '0 0 4px 0', fontSize: '0.92rem' }}>📊 Monthly Attendance Graph</h4>
             <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '14px' }}>Tap a month bar to view total present days.</p>
             
@@ -594,7 +593,7 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '20px' }}>
+          <div className="card" style={{ padding: '16px', marginBottom: '20px', background: darkMode ? '#1e293b' : '#ffffff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
               <h4 style={{ margin: 0, fontSize: '0.92rem' }}>🕒 Attendance Log</h4>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
@@ -633,13 +632,13 @@ export default function StudentAttendance() {
                   type="date"
                   value={customStartDate}
                   onChange={e => setCustomStartDate(e.target.value)}
-                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem' }}
+                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}
                 />
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={e => setCustomEndDate(e.target.value)}
-                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem' }}
+                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}
                 />
               </div>
             )}
@@ -649,7 +648,7 @@ export default function StudentAttendance() {
               placeholder="🔍 Search date, hour, status..."
               value={historySearchTerm}
               onChange={(e) => setHistorySearchTerm(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '10px' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '10px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
             />
 
             <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -680,14 +679,15 @@ export default function StudentAttendance() {
         </div>
       )}
 
+      {/* CAMERA SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px' }}>
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>📷 Classroom QR Scanner</h3>
             {cameraPermissionError ? (
               <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', marginBottom: '12px' }}>
                 <div style={{ fontWeight: '700', marginBottom: '6px' }}>{cameraPermissionError}</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                <div style={{ fontSize: '0.78rem', color: darkMode ? '#f8fafc' : 'var(--text-main)' }}>
                   💡 <strong>Tip:</strong> Simply open your phone's regular <strong>Camera app</strong> (or Google Lens) and point it at the teacher's screen QR code to open and mark attendance instantly!
                 </div>
               </div>
@@ -711,9 +711,10 @@ export default function StudentAttendance() {
         </div>
       )}
 
+      {/* MONTHLY BAR MODAL */}
       {selectedMonthModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px' }}>
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
             <h3>📅 {selectedMonthModal.monthLabel}</h3>
             <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#818cf8', margin: '12px 0' }}>
               {selectedMonthModal.presentDaysCount} Days
@@ -724,9 +725,10 @@ export default function StudentAttendance() {
         </div>
       )}
 
+      {/* OD & MEDICAL LEAVE MODAL */}
       {showLeaveModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📄 OD & Medical Portal</h3>
               <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
@@ -738,7 +740,7 @@ export default function StudentAttendance() {
                 <select
                   value={leaveForm.leave_type}
                   onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
-                  style={{ width: '100%', padding: '8px' }}
+                  style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
                 >
                   <option value="OD">On-Duty (OD) Event / Fest</option>
                   <option value="Medical">Medical Leave</option>
@@ -753,7 +755,7 @@ export default function StudentAttendance() {
                     type="date"
                     value={leaveForm.from_date}
                     onChange={(e) => setLeaveForm({ ...leaveForm, from_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
+                    style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
                     required
                   />
                 </div>
@@ -763,7 +765,7 @@ export default function StudentAttendance() {
                     type="date"
                     value={leaveForm.to_date}
                     onChange={(e) => setLeaveForm({ ...leaveForm, to_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
+                    style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
                     required
                   />
                 </div>
@@ -776,7 +778,7 @@ export default function StudentAttendance() {
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
                   placeholder="e.g. Hackathon or Illness"
-                  style={{ width: '100%', padding: '8px', fontSize: '0.82rem' }}
+                  style={{ width: '100%', padding: '8px', fontSize: '0.82rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
                   required
                 />
               </div>
