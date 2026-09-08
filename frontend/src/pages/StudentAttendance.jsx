@@ -20,11 +20,18 @@ export default function StudentAttendance() {
   const [cameraPermissionError, setCameraPermissionError] = useState(null);
   const scannerRef = useRef(null);
 
-  // Dark Mode State
+  // Unified Dark Mode State tied to document body / root class
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("student_dark") === "true");
 
   useEffect(() => {
     localStorage.setItem("student_dark", darkMode);
+    if (darkMode) {
+      document.body.style.background = '#090d16';
+      document.body.style.color = '#f1f5f9';
+    } else {
+      document.body.style.background = '#f8fafc';
+      document.body.style.color = '#0f172a';
+    }
   }, [darkMode]);
 
   // Leave & OD States
@@ -338,6 +345,13 @@ export default function StudentAttendance() {
 
   const targetInfo = calculateClassesNeeded();
 
+  // Consistent Theme Token Variables matching Admin/Teacher Panels
+  const cardBg = darkMode ? '#1e1b4b' : '#ffffff';
+  const cardBorder = darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+  const textColor = darkMode ? '#f8fafc' : '#0f172a';
+  const textMuted = darkMode ? '#94a3b8' : '#64748b';
+  const inputBg = darkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc';
+
   return (
     <div style={{ 
       width: '100%', 
@@ -346,29 +360,49 @@ export default function StudentAttendance() {
       padding: '16px 12px', 
       minHeight: '100vh', 
       boxSizing: 'border-box',
-      background: darkMode ? '#0f172a' : '#f8fafc',
-      color: darkMode ? '#f8fafc' : '#0f172a',
-      transition: 'background 0.3s ease, color 0.3s ease' 
+      backgroundColor: darkMode ? '#0f0c29' : '#f8fafc',
+      color: textColor,
+      transition: 'background-color 0.3s ease, color 0.3s ease' 
     }}>
       
       {/* HEADER & CONTROLS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.5rem)', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>⚡ SmartAttend</h2>
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Student Self-Service Portal</span>
+          <span style={{ fontSize: '0.76rem', color: textMuted }}>Student Self-Service Portal</span>
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button 
             onClick={() => setDarkMode(!darkMode)} 
-            className="btn btn-secondary" 
-            style={{ fontSize: '0.76rem', padding: '6px 12px' }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '10px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: `1px solid ${cardBorder}`,
+              background: cardBg,
+              color: textColor,
+              cursor: 'pointer'
+            }}
           >
             {darkMode ? '☀️ Light' : '🌙 Dark'}
           </button>
 
           {deferredPrompt && (
-            <button onClick={handleInstallPWA} className="btn btn-secondary" style={{ fontSize: '0.76rem', padding: '6px 12px' }}>
+            <button 
+              onClick={handleInstallPWA} 
+              style={{
+                padding: '6px 14px',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                border: `1px solid ${cardBorder}`,
+                background: cardBg,
+                color: textColor,
+                cursor: 'pointer'
+              }}
+            >
               📲 Install App
             </button>
           )}
@@ -418,10 +452,10 @@ export default function StudentAttendance() {
       )}
 
       {!studentInfo ? (
-        <div className="card" style={{ padding: 'clamp(20px, 5vw, 32px)', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
+        <div style={{ padding: 'clamp(20px, 5vw, 32px)', textAlign: 'center', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🎓</div>
-          <h3 style={{ marginBottom: '6px' }}>Student Device Link</h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+          <h3 style={{ marginBottom: '6px', color: textColor }}>Student Device Link</h3>
+          <p style={{ fontSize: '0.82rem', color: textMuted, marginBottom: '14px' }}>
             Enter your Roll Number once to link this mobile device permanently.
           </p>
           {pendingSessionId && (
@@ -435,7 +469,7 @@ export default function StudentAttendance() {
               placeholder="e.g. 2585351122"
               value={rollNoInput}
               onChange={(e) => setRollNoInput(e.target.value.toUpperCase())}
-              style={{ width: '100%', padding: '12px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+              style={{ width: '100%', padding: '12px', marginBottom: '16px', textAlign: 'center', fontWeight: '700', fontSize: '1rem', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '10px', boxSizing: 'border-box' }}
               required
             />
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: '700' }}>
@@ -445,11 +479,11 @@ export default function StudentAttendance() {
         </div>
       ) : (
         <div>
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
+          <div style={{ padding: '16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
             <div style={{ minWidth: '180px' }}>
               <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.8px' }}>LINKED PROFILE</span>
-              <h3 style={{ margin: '2px 0', fontSize: 'clamp(1rem, 3.5vw, 1.15rem)' }}>{studentInfo.full_name}</h3>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
+              <h3 style={{ margin: '2px 0', fontSize: 'clamp(1rem, 3.5vw, 1.15rem)', color: textColor }}>{studentInfo.full_name}</h3>
+              <span style={{ fontSize: '0.8rem', color: textMuted }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
             </div>
 
             <div style={{ textAlign: 'right' }}>
@@ -472,13 +506,13 @@ export default function StudentAttendance() {
           </div>
 
           {/* TARGET 75% ATTENDANCE PLANNER CARD */}
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: percentage >= 75 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', border: `1px solid ${percentage >= 75 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}` }}>
+          <div style={{ padding: '16px', marginBottom: '14px', background: percentage >= 75 ? (darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)') : (darkMode ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.08)'), border: `1px solid ${percentage >= 75 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`, borderRadius: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <span style={{ fontSize: '0.68rem', fontWeight: '800', color: percentage >= 75 ? '#10b981' : '#ef4444', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   🎯 75% Target Goal Planner
                 </span>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: darkMode ? '#f8fafc' : 'var(--text-main)' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: textColor }}>
                   {targetInfo.type === 'safe' ? (
                     <>You are above 75%. You can safely miss up to <strong>{targetInfo.count} class(es)</strong> without dropping below safety.</>
                   ) : (
@@ -490,16 +524,16 @@ export default function StudentAttendance() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL CLASSES</span>
+            <div style={{ padding: '12px 6px', textAlign: 'center', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
+              <span style={{ fontSize: '0.62rem', color: textMuted, fontWeight: '700' }}>TOTAL CLASSES</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#818cf8', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalWorkingDays}</h3>
             </div>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #34d399', background: darkMode ? '#1e293b' : '#ffffff' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>PRESENT</span>
+            <div style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #34d399', background: cardBg, borderTop: `1px solid ${cardBorder}`, borderRight: `1px solid ${cardBorder}`, borderBottom: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
+              <span style={{ fontSize: '0.62rem', color: textMuted, fontWeight: '700' }}>PRESENT</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#34d399', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{totalPresent}</h3>
             </div>
-            <div className="card" style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #f87171', background: darkMode ? '#1e293b' : '#ffffff' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>ABSENT</span>
+            <div style={{ padding: '12px 6px', textAlign: 'center', borderLeft: '3px solid #f87171', background: cardBg, borderTop: `1px solid ${cardBorder}`, borderRight: `1px solid ${cardBorder}`, borderBottom: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
+              <span style={{ fontSize: '0.62rem', color: textMuted, fontWeight: '700' }}>ABSENT</span>
               <h3 style={{ margin: '4px 0 0 0', color: '#f87171', fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>{detailedStats ? detailedStats.totalAbsent : 0}</h3>
             </div>
           </div>
@@ -521,7 +555,7 @@ export default function StudentAttendance() {
             </button>
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', textAlign: 'center', background: darkMode ? '#1e293b' : '#ffffff' }}>
+          <div style={{ padding: '16px', marginBottom: '14px', textAlign: 'center', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
             <button
               onClick={() => setIsCameraOpen(true)}
               disabled={scanning}
@@ -538,23 +572,23 @@ export default function StudentAttendance() {
             )}
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: darkMode ? '#1e293b' : '#ffffff' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem' }}>📚 Subject & Period Breakdown</h4>
+          <div style={{ padding: '16px', marginBottom: '14px', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem', color: textColor }}>📚 Subject & Period Breakdown</h4>
             {detailedStats && Object.keys(detailedStats.subjects).length > 0 ? (
               Object.entries(detailedStats.subjects).map(([subj, data]) => {
                 const subPct = data.totalPeriods > 0 ? Math.round((data.present / data.totalPeriods) * 100) : 0;
                 const isSubSafe = subPct >= 75;
 
                 return (
-                  <div key={subj} style={{ marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid var(--glass-border)' }}>
+                  <div key={subj} style={{ marginBottom: '12px', paddingBottom: '8px', borderBottom: `1px solid ${cardBorder}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.82rem' }}>
-                      <strong style={{ wordBreak: 'break-word', maxWidth: '70%' }}>{subj}</strong>
+                      <strong style={{ wordBreak: 'break-word', maxWidth: '70%', color: textColor }}>{subj}</strong>
                       <span style={{ fontWeight: '700', color: isSubSafe ? '#10b981' : '#ef4444' }}>
                         {subPct}% ({data.present}/{data.totalPeriods})
                       </span>
                     </div>
 
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '8px', background: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)', borderRadius: '6px', overflow: 'hidden' }}>
                       <div style={{
                         width: `${subPct}%`,
                         height: '100%',
@@ -567,17 +601,17 @@ export default function StudentAttendance() {
                 );
               })
             ) : (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No class records found.</p>
+              <p style={{ fontSize: '0.8rem', color: textMuted, margin: 0 }}>No class records found.</p>
             )}
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '14px', background: darkMode ? '#1e293b' : '#ffffff' }}>
-            <h4 style={{ margin: '0 0 4px 0', fontSize: '0.92rem' }}>📊 Monthly Attendance Graph</h4>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '14px' }}>Tap a month bar to view total present days.</p>
+          <div style={{ padding: '16px', marginBottom: '14px', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '0.92rem', color: textColor }}>📊 Monthly Attendance Graph</h4>
+            <p style={{ fontSize: '0.74rem', color: textMuted, marginBottom: '14px' }}>Tap a month bar to view total present days.</p>
             
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '110px', paddingBottom: '8px', borderBottom: '1px solid var(--glass-border)', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '110px', paddingBottom: '8px', borderBottom: `1px solid ${cardBorder}`, overflowX: 'auto' }}>
               {!detailedStats?.monthlyBarGraph || detailedStats.monthlyBarGraph.length === 0 ? (
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No monthly attendance logged yet.</span>
+                <span style={{ fontSize: '0.8rem', color: textMuted }}>No monthly attendance logged yet.</span>
               ) : (
                 detailedStats.monthlyBarGraph.map((item, idx) => (
                   <div key={idx} onClick={() => setSelectedMonthModal(item)} style={{ flex: 1, minWidth: '40px', textAlign: 'center', cursor: 'pointer' }}>
@@ -586,17 +620,17 @@ export default function StudentAttendance() {
                       background: 'linear-gradient(180deg, #818cf8, #4f46e5)',
                       borderRadius: '6px 6px 0 0'
                     }} />
-                    <span style={{ fontSize: '0.64rem', display: 'block', marginTop: '4px', color: 'var(--text-muted)' }}>{item.monthLabel}</span>
+                    <span style={{ fontSize: '0.64rem', display: 'block', marginTop: '4px', color: textMuted }}>{item.monthLabel}</span>
                   </div>
                 ))
               )}
             </div>
           </div>
 
-          <div className="card" style={{ padding: '16px', marginBottom: '20px', background: darkMode ? '#1e293b' : '#ffffff' }}>
+          <div style={{ padding: '16px', marginBottom: '20px', background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-              <h4 style={{ margin: 0, fontSize: '0.92rem' }}>🕒 Attendance Log</h4>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{filteredHistory.length} record(s)</span>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', color: textColor }}>🕒 Attendance Log</h4>
+              <span style={{ fontSize: '0.74rem', color: textMuted }}>{filteredHistory.length} record(s)</span>
             </div>
 
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
@@ -615,9 +649,9 @@ export default function StudentAttendance() {
                     fontSize: '0.72rem',
                     fontWeight: '700',
                     borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    background: dateRangeFilter === tab.value ? 'var(--primary)' : 'var(--card-bg)',
-                    color: dateRangeFilter === tab.value ? '#ffffff' : 'var(--text-main)',
+                    border: `1px solid ${cardBorder}`,
+                    background: dateRangeFilter === tab.value ? 'var(--primary)' : inputBg,
+                    color: dateRangeFilter === tab.value ? '#ffffff' : textColor,
                     cursor: 'pointer'
                   }}
                 >
@@ -632,13 +666,13 @@ export default function StudentAttendance() {
                   type="date"
                   value={customStartDate}
                   onChange={e => setCustomStartDate(e.target.value)}
-                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}
+                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                 />
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={e => setCustomEndDate(e.target.value)}
-                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}
+                  style={{ width: '100%', padding: '6px', fontSize: '0.76rem', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                 />
               </div>
             )}
@@ -648,18 +682,18 @@ export default function StudentAttendance() {
               placeholder="🔍 Search date, hour, status..."
               value={historySearchTerm}
               onChange={(e) => setHistorySearchTerm(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '10px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '10px', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, boxSizing: 'border-box' }}
             />
 
             <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
               {filteredHistory.length === 0 ? (
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '6px 0' }}>No attendance records found.</p>
+                <p style={{ fontSize: '0.78rem', color: textMuted, margin: '6px 0' }}>No attendance records found.</p>
               ) : (
                 filteredHistory.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.8rem' }}>
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${cardBorder}`, fontSize: '0.8rem' }}>
                     <div>
-                      <strong>{item.date}</strong>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.hour}</div>
+                      <strong style={{ color: textColor }}>{item.date}</strong>
+                      <div style={{ fontSize: '0.7rem', color: textMuted }}>{item.hour}</div>
                     </div>
                     <span style={{
                       fontSize: '0.72rem',
@@ -682,12 +716,12 @@ export default function StudentAttendance() {
       {/* CAMERA SCANNER MODAL */}
       {isCameraOpen && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>📷 Classroom QR Scanner</h3>
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '380px', background: cardBg, color: textColor, border: `1px solid ${cardBorder}` }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: textColor }}>📷 Classroom QR Scanner</h3>
             {cameraPermissionError ? (
               <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', marginBottom: '12px' }}>
                 <div style={{ fontWeight: '700', marginBottom: '6px' }}>{cameraPermissionError}</div>
-                <div style={{ fontSize: '0.78rem', color: darkMode ? '#f8fafc' : 'var(--text-main)' }}>
+                <div style={{ fontSize: '0.78rem', color: textColor }}>
                   💡 <strong>Tip:</strong> Simply open your phone's regular <strong>Camera app</strong> (or Google Lens) and point it at the teacher's screen QR code to open and mark attendance instantly!
                 </div>
               </div>
@@ -714,12 +748,12 @@ export default function StudentAttendance() {
       {/* MONTHLY BAR MODAL */}
       {selectedMonthModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
-            <h3>📅 {selectedMonthModal.monthLabel}</h3>
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '340px', background: cardBg, color: textColor, border: `1px solid ${cardBorder}` }}>
+            <h3 style={{ color: textColor }}>📅 {selectedMonthModal.monthLabel}</h3>
             <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#818cf8', margin: '12px 0' }}>
               {selectedMonthModal.presentDaysCount} Days
             </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Total days marked Present.</p>
+            <p style={{ fontSize: '0.82rem', color: textMuted }}>Total days marked Present.</p>
             <button onClick={() => setSelectedMonthModal(null)} className="btn btn-primary" style={{ marginTop: '12px', width: '100%' }}>Close</button>
           </div>
         </div>
@@ -728,19 +762,19 @@ export default function StudentAttendance() {
       {/* OD & MEDICAL LEAVE MODAL */}
       {showLeaveModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto', background: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a' }}>
+          <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto', background: cardBg, color: textColor, border: `1px solid ${cardBorder}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>📄 OD & Medical Portal</h3>
-              <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: textColor }}>📄 OD & Medical Portal</h3>
+              <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: textMuted }}>✕</button>
             </div>
 
             <form onSubmit={handleApplyLeave} style={{ marginBottom: '16px' }}>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Request Type</label>
+                <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: textMuted }}>Request Type</label>
                 <select
                   value={leaveForm.leave_type}
                   onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
-                  style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+                  style={{ width: '100%', padding: '8px', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                 >
                   <option value="OD">On-Duty (OD) Event / Fest</option>
                   <option value="Medical">Medical Leave</option>
@@ -750,35 +784,35 @@ export default function StudentAttendance() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                 <div>
-                  <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>From Date</label>
+                  <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: textMuted }}>From Date</label>
                   <input
                     type="date"
                     value={leaveForm.from_date}
                     onChange={(e) => setLeaveForm({ ...leaveForm, from_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+                    style={{ width: '100%', padding: '8px', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                     required
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>To Date</label>
+                  <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: textMuted }}>To Date</label>
                   <input
                     type="date"
                     value={leaveForm.to_date}
                     onChange={(e) => setLeaveForm({ ...leaveForm, to_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+                    style={{ width: '100%', padding: '8px', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                     required
                   />
                 </div>
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Reason</label>
+                <label style={{ fontSize: '0.72rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: textMuted }}>Reason</label>
                 <textarea
                   rows="2"
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
                   placeholder="e.g. Hackathon or Illness"
-                  style={{ width: '100%', padding: '8px', fontSize: '0.82rem', background: darkMode ? '#0f172a' : '#ffffff', color: darkMode ? '#f8fafc' : '#0f172a', border: '1px solid var(--glass-border)' }}
+                  style={{ width: '100%', padding: '8px', fontSize: '0.82rem', background: inputBg, color: textColor, border: `1px solid ${cardBorder}`, borderRadius: '8px', boxSizing: 'border-box' }}
                   required
                 />
               </div>
@@ -788,16 +822,16 @@ export default function StudentAttendance() {
               </button>
             </form>
 
-            <h4 style={{ margin: '10px 0 6px 0', fontSize: '0.85rem' }}>Recent Applications</h4>
+            <h4 style={{ margin: '10px 0 6px 0', fontSize: '0.85rem', color: textColor }}>Recent Applications</h4>
             <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
               {leaveHistory.length === 0 ? (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No previous requests found.</p>
+                <p style={{ fontSize: '0.75rem', color: textMuted }}>No previous requests found.</p>
               ) : (
                 leaveHistory.map((item) => (
-                  <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--glass-border)', fontSize: '0.78rem' }}>
+                  <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${cardBorder}`, fontSize: '0.78rem' }}>
                     <div>
-                      <strong>{item.leave_type}</strong> ({item.from_date} to {item.to_date})
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.reason}</div>
+                      <strong style={{ color: textColor }}>{item.leave_type}</strong> ({item.from_date} to {item.to_date})
+                      <div style={{ fontSize: '0.7rem', color: textMuted }}>{item.reason}</div>
                     </div>
                     <span style={{
                       fontWeight: '700',
