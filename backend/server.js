@@ -441,6 +441,7 @@ app.post('/api/qr/generate-location', (req, res) => {
 });
 
 // STUDENT QR ATTENDANCE VERIFICATION
+// REPLACE your app.post('/api/qr/verify-student', ...) route in server.js with this:
 app.post('/api/qr/verify-student', async (req, res) => {
   const { rollNo, studentLat, studentLng, sessionId } = req.body;
 
@@ -483,6 +484,18 @@ app.post('/api/qr/verify-student', async (req, res) => {
       });
     }
 
+    // STRICT YEAR & DEPARTMENT VALIDATION: Prevent cross-class/year QR scans
+    if (
+      student.dept_code.toUpperCase() !== session.dept.toUpperCase() ||
+      (session.year && student.year_level && student.year_level.toUpperCase() !== session.year.toUpperCase()) ||
+      (session.section && student.section && student.section.toUpperCase() !== session.section.toUpperCase())
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: `❌ Unauthorized Scan! This QR code is for ${session.dept} (${session.year || ''} ${session.section || ''}). You belong to ${student.dept_code} (${student.year_level}).`
+      });
+    }
+
     await Attendance.findOneAndUpdate(
       { roll_no: rollNo.toUpperCase(), dept_code: session.dept, hour: session.hour, date: session.date },
       { status: 'Present', teacher_id: session.teacherId },
@@ -497,6 +510,7 @@ app.post('/api/qr/verify-student', async (req, res) => {
     res.status(500).json({ success: false, message: "Database error recording attendance." });
   }
 });
+
 
 // ==================== ADMIN API ENDPOINTS ====================
 

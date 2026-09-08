@@ -20,6 +20,12 @@ export default function StudentAttendance() {
   const [cameraPermissionError, setCameraPermissionError] = useState(null);
   const scannerRef = useRef(null);
 
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("student_dark") === "true");
+
+  useEffect(() => {
+  localStorage.setItem("student_dark", darkMode);
+}, [darkMode]);
+
   // Leave & OD States
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveHistory, setLeaveHistory] = useState([]);
@@ -423,6 +429,29 @@ export default function StudentAttendance() {
               <h3 style={{ margin: '2px 0', fontSize: 'clamp(1rem, 3.5vw, 1.15rem)' }}>{studentInfo.full_name}</h3>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll: <strong>{studentInfo.roll_no}</strong> • {studentInfo.dept_code}</span>
             </div>
+
+            <div style={{ 
+  width: '100%', 
+  maxWidth: '580px', 
+  margin: '0 auto', 
+  padding: '16px 12px', 
+  minHeight: '100vh', 
+  boxSizing: 'border-box',
+  background: darkMode ? '#0f172a' : '#f8fafc',
+  color: darkMode ? '#f8fafc' : '#0f172a',
+  transition: 'background 0.3s ease, color 0.3s ease' 
+}}>
+  
+  {/* Add a toggle button next to your PWA install button in the header */}
+  <button 
+    onClick={() => setDarkMode(!darkMode)} 
+    className="btn btn-secondary" 
+    style={{ fontSize: '0.76rem', padding: '6px 12px' }}
+  >
+    {darkMode ? '☀️ Light' : '🌙 Dark'}
+  </button>
+  {/* Rest of student dashboard JSX... */}
+</div>
 
             <div style={{ textAlign: 'right' }}>
               <div style={{
